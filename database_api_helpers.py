@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 
 
-DATABASE_PASSWORD_PATH = "Database/api/database_password.txt"
+DATABASE_PASSWORD_PATH = "database_password.txt"
 DATABASE_NAME = "identiflora_testing_db"
 
 # Resolve password from file at import time; environment variable DB_PASSWORD still overrides in build_engine.
