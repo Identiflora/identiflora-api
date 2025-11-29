@@ -41,10 +41,10 @@ app.mount(
 )
 
 
-if __name__ == "__main__":
-    uvicorn.run(
-        "database_api:app",
-        host=HOST,
-        port=PORT,
-        reload=False,
-    )
+# if __name__ == "__main__":
+#     uvicorn.run(
+#         "database_api:app",
+#         host=HOST,
+#         port=PORT,
+#         reload=False,
+#     )
