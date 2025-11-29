@@ -7,7 +7,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from database_api_helpers import build_engine, IncorrectIdentificationRequest, record_incorrect_identification, get_plant_species_url
+from database_api_helpers import build_engine, IncorrectIdentificationRequest, UserRegistrationRequest, record_incorrect_identification, get_plant_species_url, record_user_registration
 
 HOST = "localhost"
 PORT = 8000
@@ -23,7 +23,6 @@ app = FastAPI(
 
 engine = build_engine()
 
-
 @app.post("/incorrect-identifications")
 def add_incorrect_identification(payload: IncorrectIdentificationRequest):
     """Route handler that records an incorrect identification via helper logic."""
@@ -34,16 +33,20 @@ def get_plant_species_url_router(sci_name: str):
     """Route handler that records a plant species img url request via helper logic."""
     return get_plant_species_url(sci_name, HOST, PORT, PLANT_IMG_PATH, engine)
 
-# directory containing plant images. Calls to api: http://localhost:8000/plant-images/API_test_img.png
-app.mount(
-    "/plant-images",
-    StaticFiles(directory=PLANT_IMG_LOC)
-)
+@app.post("/user")
+def add_registered_user(payload: UserRegistrationRequest):
+    """Route handler that records user registration data via helper logic."""
+    return record_user_registration(payload, engine)
 
+# directory containing plant images. Calls to api: http://localhost:8000/plant-images/API_test_img.png
+# app.mount(
+#     "/plant-images",
+#     StaticFiles(directory=PLANT_IMG_LOC)
+# )
 
 # if __name__ == "__main__":
 #     uvicorn.run(
-#         "database_api:app",
+#         "main:app",
 #         host=HOST,
 #         port=PORT,
 #         reload=False,
