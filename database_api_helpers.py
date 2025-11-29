@@ -39,6 +39,14 @@ class UserRegistrationRequest(BaseModel):
     username: str = Field(..., min_length=1, description="Username from user input")
     password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
 
+class UserLoginRequest(BaseModel):
+    """
+    Request body for reporting user login. Ensures empty strings trigger invalid requests.
+    """
+
+    user_email: str = Field(..., min_length=1, description="Email from user input")
+    password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
+
 def build_engine() -> Engine:
     """
     Create a SQLAlchemy engine using environment-driven configuration.
@@ -335,4 +343,51 @@ def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -
         raise HTTPException(
             status_code=500,
             detail=f"Database error while creating user registration: {exc}",
+        ) from exc
+    
+def user_login(payload: UserLoginRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Persist a user login, validating referenced rows and constraints.
+
+    Parameters
+    ----------
+    payload : UserLoginRequest
+        Request data containing email and password hash.
+
+    Returns
+    -------
+    dict
+        Confirmation payload mirroring the created row.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, referenced rows are missing, or database errors occur.
+    """
+    try:
+        with engine.begin() as conn:
+            user = conn.execute(
+                text("CALL login_user(:user_email_in)"),
+                {
+                    "user_email_in": payload.user_email,
+                },
+            ).first()
+
+            if user is None:
+                raise HTTPException(status_code=401, detail="No user exists with these credentials.")
+
+            if not bcrypt.verify(payload.password_hash, user.password_hash):
+                raise HTTPException(status_code=401, detail="No user exists with these credentials.")
+
+            return {"user_id": user.user_id}
+
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="No user exists with these credentials.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while logging in user: {exc}",
         ) from exc
