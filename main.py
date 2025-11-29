@@ -46,7 +46,7 @@ def add_registered_user(payload: UserRegistrationRequest):
 
 if __name__ == "__main__":
     uvicorn.run(
-        "database_api:app",
+        "main:app",
         host=HOST,
         port=PORT,
         reload=False,
