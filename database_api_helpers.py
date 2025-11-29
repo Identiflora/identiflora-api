@@ -1,0 +1,256 @@
+﻿#!/usr/bin/env python3
+from __future__ import annotations
+
+import os
+from typing import Any, Dict
+from urllib.parse import quote_plus, urljoin
+
+from fastapi import HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine, Row
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+
+
+
+DATABASE_PASSWORD_PATH = "Database/api/database_password.txt"
+DATABASE_NAME = "identiflora_testing_db"
+
+# Resolve password from file at import time; environment variable DB_PASSWORD still overrides in build_engine.
+try:
+    with open(DATABASE_PASSWORD_PATH) as file:
+        db_password = file.read().strip()
+except FileNotFoundError:
+    db_password = ""
+
+
+class IncorrectIdentificationRequest(BaseModel):
+    """
+    Request body for reporting an incorrect identification.
+    """
+
+    identification_id: int = Field(..., gt=0, description="FK to identification_submission")
+    correct_species_id: int = Field(..., gt=0, description="Species that should have been returned")
+    incorrect_species_id: int = Field(..., gt=0, description="Species the model predicted")
+
+
+def build_engine() -> Engine:
+    """
+    Create a SQLAlchemy engine using environment-driven configuration.
+
+    Returns
+    -------
+    sqlalchemy.engine.Engine
+        Engine configured for the target MySQL database.
+
+    Raises
+    ------
+    HTTPException
+        If engine creation fails.
+    """
+    try:
+        user = quote_plus(os.getenv("DB_USER", "root"))
+        password = quote_plus(os.getenv("DB_PASSWORD", db_password))
+        host = os.getenv("DB_HOST", "localhost")
+        port = os.getenv("DB_PORT", "3306")
+        db_name = os.getenv("DB_NAME", DATABASE_NAME)
+        # Using PyMySQL dialect for compatibility.
+        url = f"mysql+pymysql://{user}:{password}@{host}:{port}/{db_name}"
+        return create_engine(url, future=True, pool_pre_ping=True)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Could not create database engine: {exc}") from exc
+
+
+def ensure_row(conn, query: str, params: Dict[str, Any], missing_message: str, status: int = 404) -> Row:
+    """
+    Execute a query and ensure a single row exists.
+
+    Parameters
+    ----------
+    conn : sqlalchemy.engine.Connection
+        Active connection to run the query.
+    query : str
+        Query that should return exactly one row.
+    params : dict
+        Parameters for the query.
+    missing_message : str
+        Error message if no row is found.
+    status : int, optional
+        HTTP status code to use for the not-found case, by default 404.
+
+    Returns
+    -------
+    sqlalchemy.engine.Row
+        Row data accessible by column name.
+
+    Raises
+    ------
+    HTTPException
+        If the query returns no rows.
+    """
+    result = conn.execute(text(query), params)
+    row = result.mappings().first()
+    if row is None:
+        raise HTTPException(status_code=status, detail=missing_message)
+    return row
+
+
+def record_incorrect_identification(payload: IncorrectIdentificationRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Persist an incorrect identification, validating referenced rows and constraints.
+
+    Parameters
+    ----------
+    payload : IncorrectIdentificationRequest
+        Request data containing identification, correct species, and incorrect species.
+
+    Returns
+    -------
+    dict
+        Confirmation payload mirroring the created row.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, referenced rows are missing, or database errors occur.
+    """
+    if payload.correct_species_id == payload.incorrect_species_id:
+        raise HTTPException(status_code=400, detail="Correct and incorrect species IDs must differ.")
+
+    try:
+        with engine.begin() as conn:
+            # Read-only validation of submission existence.
+            ensure_row(
+                conn,
+                "CALL check_ident_id_exists(:id)",
+                {"id": payload.identification_id},
+                "Identification submission not found.",
+            )
+            # Read-only validation of species rows.
+            ensure_row(
+                conn,
+                "CALL check_species_id_exists(:id)",
+                {"id": payload.correct_species_id},
+                "Correct species not found.",
+            )
+            ensure_row(
+                conn,
+                "CALL check_species_id_exists(:id)",
+                {"id": payload.incorrect_species_id},
+                "Incorrect species not found.",
+            )
+
+            # Read-only duplicate guard to avoid multiple incorrect records per submission.
+            existing = conn.execute(
+                text("CALL check_incorrect_sub_exists(:id)"),
+                {"id": payload.identification_id},
+            ).first()
+
+            if existing is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="An incorrect identification has already been recorded for this submission.",
+                )
+
+            # Write: insert the incorrect identification record with timestamp.
+            conn.execute(
+                text("CALL add_incorrect_id(:ident_id_in, :correct_species_id_in, :inc_species_id_in)"),
+                {
+                    "ident_id_in": payload.identification_id,
+                    "correct_species_id_in": payload.correct_species_id,
+                    "inc_species_id_in": payload.incorrect_species_id,
+                },
+            )
+
+            return {
+                "identification_id": payload.identification_id,
+                "correct_species_id": payload.correct_species_id,
+                "incorrect_species_id": payload.incorrect_species_id,
+                "message": "Incorrect identification recorded.",
+            }
+
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="An incorrect identification already exists for this submission.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while creating incorrect identification: {exc}",
+        ) from exc
+
+
+def get_plant_species_url(scientific_name: str, host: str, port: int, img_path: str, engine: Engine) -> str:
+    """
+    Fetch the image URL for a plant species identified by its scientific name. Assumes img_url is more like img_name (eg. test_img.png).
+
+    Parameters
+    ----------
+    scientific_name : str
+        Scientific (Latin) name of the plant to query.
+    host: str
+        image server host
+    port: 
+        port to access image server
+    img_path:
+        path to access images (eg. /plant-images)
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    str
+        The img_url associated with the plant species. Url is ready to be executed on return.
+
+    Raises
+    ------
+    HTTPException
+        400 if the name is empty, 404 if not found, 500 for database errors.
+    """
+    # make sure scientific name has characters and is not an invalid name such as " "
+    if not scientific_name or not scientific_name.strip():
+        raise HTTPException(status_code=400, detail="Scientific name must be provided.")
+
+    try:
+        with engine.connect() as conn:
+            row = ensure_row(
+                conn,
+                """
+                CALL get_plant_species_img_url(:scientific_name)
+                """,
+                {"scientific_name": scientific_name},
+                "Plant species not found.",
+            )
+            # join base path with image name
+            img_path = os.path.join(img_path, row['img_url'])
+            return build_base_url(host, port, img_path)
+        
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while fetching plant species URL: {exc}",
+        ) from exc
+
+def build_base_url(host: str, port: int, path: str):
+    """
+    Construct a base url from the host, port, and path
+    
+    Parameters
+    --------------------
+    host: str
+        host for the url
+    port: int
+        port for the url
+    path: str
+        path to desired location
+    
+    Returns
+    ---------------------
+    str
+        url of format: http://host:port/path
+
+    """
+    path = path.lstrip('/')
+    host_port = f'{host}:{port}'
+    return os.path.join('http://', host_port, path)
