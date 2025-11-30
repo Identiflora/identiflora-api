@@ -276,11 +276,13 @@ def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -
     ----------
     payload : UserRegistrationRequest
         Request data containing username, email, and password hash.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
 
     Returns
     -------
     dict
-        Confirmation payload mirroring the created row.
+        Confirmation payload containing the user's ID.
 
     Raises
     ------
@@ -348,11 +350,13 @@ def user_login(payload: UserLoginRequest, engine: Engine) -> Dict[str, Any]:
     ----------
     payload : UserLoginRequest
         Request data containing email and password hash.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
 
     Returns
     -------
     dict
-        Confirmation payload mirroring the created row.
+        Confirmation payload containing the user's ID.
 
     Raises
     ------
@@ -385,4 +389,50 @@ def user_login(payload: UserLoginRequest, engine: Engine) -> Dict[str, Any]:
         raise HTTPException(
             status_code=500,
             detail=f"Database error while logging in user: {exc}",
+        ) from exc
+
+def get_user_username(user_id: int, engine: Engine) -> Dict[str, Any]:
+    """
+    Fetch user's username with their ID.
+
+    Parameters
+    ----------
+    user_id : int
+        User's verification ID.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    dict
+        Payload containing user's username.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, ID is not valid or database errors occurred.
+    """
+    try:
+        with engine.connect() as conn:
+            user = conn.execute(
+                text("CALL get_user(:user_id_in)"),
+                {
+                    "user_id_in": user_id,
+                },
+            ).first()
+
+            if user is None:
+                raise HTTPException(status_code=404, detail="User with this ID could not be found.")
+            
+            return {"username": user.username}
+    
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while fetching username: {exc}",
         ) from exc
