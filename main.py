@@ -7,16 +7,15 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from database_api_helpers import (build_engine, 
-                                    IncorrectIdentificationRequest, 
-                                    UserRegistrationRequest, 
-                                    UserLoginRequest, 
-                                    PlantSpeciesURLRequest,
-                                    record_incorrect_identification, 
-                                    get_plant_species_url, 
-                                    record_user_registration, 
-                                    user_login, 
-                                    get_user_username
+from database_api_helpers import (build_engine,
+                                  IncorrectIdentificationRequest,
+                                  UserRegistrationRequest,
+                                  UserLoginRequest,
+                                  record_incorrect_identification,
+                                  get_plant_species_url,
+                                  record_user_registration,
+                                  user_login,
+                                  get_user_username
                                 )
 
 HOST = "localhost"
@@ -39,9 +38,9 @@ def add_incorrect_identification(payload: IncorrectIdentificationRequest):
     return record_incorrect_identification(payload, engine)
 
 @app.get("/plant-species-url")
-def get_plant_species_url_router(payload: PlantSpeciesURLRequest):
-    """Route handler that records a plant species img url request via helper logic."""
-    return get_plant_species_url(payload, engine)
+def get_plant_species_url_router(scientific_name: str, host: str, port: int, img_path: str):
+    """Route handler that returns a plant species img url using query parameters."""
+    return get_plant_species_url(scientific_name, host, port, img_path, engine)
 
 @app.post("/user/register")
 def add_registered_user(payload: UserRegistrationRequest):

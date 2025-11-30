@@ -38,7 +38,7 @@ class PlantSpeciesURLRequest(BaseModel):
     host: str = Field(..., description="image server host")
     port: int = Field(..., description="port to access image server")
     img_path: str = Field(..., description="path to access images (eg. /plant-images)")
-    
+
 class UserRegistrationRequest(BaseModel):
     """
     Request body for reporting user registration. Ensures empty strings trigger invalid requests.
@@ -204,15 +204,20 @@ def record_incorrect_identification(payload: IncorrectIdentificationRequest, eng
 
 
 
-def get_plant_species_url(payload: PlantSpeciesURLRequest, engine: Engine) -> str:
+def get_plant_species_url(scientific_name: str, host: str, port: int, img_path: str, engine: Engine) -> str:
     """
     Fetch the image URL for a plant species identified by its scientific name. Assumes img_url is more like img_name (eg. test_img.png).
 
     Parameters
     ----------
-    PlantSpeciesURLRequest :
-        Request data containing scientific_name, host, port, and img_path
-
+    scientific_name : str
+        Scientific (Latin) name of the plant to query.
+    host : str
+        Host serving the images.
+    port : int
+        Port for the image server.
+    img_path : str
+        Path prefix where images are served (e.g. /plant-images).
     engine : sqlalchemy.engine.Engine
         Database engine used to perform the query.
 
@@ -227,7 +232,7 @@ def get_plant_species_url(payload: PlantSpeciesURLRequest, engine: Engine) -> st
         400 if the name is empty, 404 if not found, 500 for database errors.
     """
     # make sure scientific name has characters and is not an invalid name such as " "
-    if not payload.scientific_name or not payload.scientific_name.strip():
+    if not scientific_name or not scientific_name.strip():
         raise HTTPException(status_code=400, detail="Scientific name must be provided.")
 
     try:
@@ -237,12 +242,12 @@ def get_plant_species_url(payload: PlantSpeciesURLRequest, engine: Engine) -> st
                 """
                 CALL get_plant_species_img_url(:scientific_name)
                 """,
-                {"scientific_name": payload.scientific_name},
+                {"scientific_name": scientific_name},
                 "Plant species not found.",
             )
             # join base path with image name
-            img_path = os.path.join(payload.img_path, row['img_url'])
-            return build_base_url(payload.host, payload.port, img_path)
+            img_path = os.path.join(img_path, row['img_url'])
+            return build_base_url(host, port, img_path)
         
     except SQLAlchemyError as exc:
         raise HTTPException(
