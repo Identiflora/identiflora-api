@@ -317,22 +317,17 @@ def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -
             # This is done after user existing checks to avoid unnecessary runtime
             password_hash_2 = bcrypt.hash(payload.password_hash)
 
-            # Write: insert the user account information with id and timestamp.
-            conn.execute(
+            # Write: insert the user account information with id and timestamp. This will also get the newly created user's ID.
+            user = conn.execute(
                 text("CALL add_user(:user_email_in, :username_in, :user_password_in)"),
                 {
                     "user_email_in": payload.user_email,
                     "username_in": payload.username,
                     "user_password_in": password_hash_2
                 },
-            )
+            ).first()
 
-            return {
-                "user_email_in": payload.user_email,
-                "username_in": payload.username,
-                "user_password_in": password_hash_2,
-                "message": "User registration recorded.",
-            }
+            return {"user_id": user.user_id}
 
     except IntegrityError as exc:
         raise HTTPException(
