@@ -7,7 +7,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from database_api_helpers import build_engine, IncorrectIdentificationRequest, UserRegistrationRequest, UserLoginRequest, record_incorrect_identification, get_plant_species_url, record_user_registration, user_login
+from database_api_helpers import build_engine, IncorrectIdentificationRequest, UserRegistrationRequest, UserLoginRequest, record_incorrect_identification, get_plant_species_url, record_user_registration, user_login, get_user_username
 
 HOST = "localhost"
 PORT = 8000
@@ -42,6 +42,11 @@ def add_registered_user(payload: UserRegistrationRequest):
 def login_user(payload: UserLoginRequest):
     """Route handler that records user registration data via helper logic."""
     return user_login(payload, engine)
+
+@app.get("/user/{user_id}")
+def get_username(user_id: int):
+    """Route handler that gets username data via helper logic."""
+    return get_user_username(user_id, engine)
 
 # directory containing plant images. Calls to api: http://localhost:8000/plant-images/API_test_img.png
 # app.mount(
