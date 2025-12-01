@@ -38,9 +38,9 @@ def add_incorrect_identification(payload: IncorrectIdentificationRequest):
     return record_incorrect_identification(payload, engine)
 
 @app.get("/plant-species-url")
-def get_plant_species_url_router(scientific_name: str, host: str, port: int, img_path: str):
+def get_plant_species_url_router(scientific_name: str):
     """Route handler that returns a plant species img url using query parameters."""
-    return get_plant_species_url(scientific_name, host, port, img_path, engine)
+    return get_plant_species_url(scientific_name, engine)
 
 @app.post("/user/register")
 def add_registered_user(payload: UserRegistrationRequest):

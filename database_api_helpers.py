@@ -204,7 +204,7 @@ def record_incorrect_identification(payload: IncorrectIdentificationRequest, eng
 
 
 
-def get_plant_species_url(scientific_name: str, host: str, port: int, img_path: str, engine: Engine) -> str:
+def get_plant_species_url(scientific_name: str, engine: Engine) -> str:
     """
     Fetch the image URL for a plant species identified by its scientific name. Assumes img_url is more like img_name (eg. test_img.png).
 
@@ -245,9 +245,7 @@ def get_plant_species_url(scientific_name: str, host: str, port: int, img_path: 
                 {"scientific_name": scientific_name},
                 "Plant species not found.",
             )
-            # join base path with image name
-            img_path = os.path.join(img_path, row['img_url'])
-            return build_base_url(host, port, img_path)
+            return row['img_url']
         
     except SQLAlchemyError as exc:
         raise HTTPException(
