@@ -30,6 +30,16 @@ class IncorrectIdentificationRequest(BaseModel):
     correct_species_id: int = Field(..., gt=0, description="Species that should have been returned")
     incorrect_species_id: int = Field(..., gt=0, description="Species the model predicted")
 
+class PlantSpeciesRequest(BaseModel):
+    """
+    Request body for reporting a new plant species.
+    """
+
+    common_name: int = Field(..., gt=0, description="common name of plant species")
+    scientific_name: int = Field(..., gt=0, description="scientific name of plant species")
+    genus: int = Field(..., gt=0, description="genus of plant species")
+    img_url: int = Field(..., gt=0, description="url to image of plant species")
+
 class PlantSpeciesURLRequest(BaseModel):
     """
     Request body for requesting a plant img url.
@@ -202,7 +212,69 @@ def record_incorrect_identification(payload: IncorrectIdentificationRequest, eng
             detail=f"Database error while creating incorrect identification: {exc}",
         ) from exc
 
+def record_plant_species(payload: PlantSpeciesRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Add a new plant species to database
 
+    Parameters
+    ----------
+    payload : PlantSpeciesRequest
+        Request data containing common_name, scientific_name, genus, and img_url
+
+    Returns
+    -------
+    dict
+        Confirmation payload mirroring the created row.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, referenced rows are missing, or database errors occur.
+    """
+
+    try:
+        with engine.begin() as conn:
+
+            # Read-only duplicate guard to avoid multiple plant species of same type.
+            existing = conn.execute(
+                text("CALL check_plant_species_exists(:scientific_name_in)"),
+                {"scientific_name_in": payload.scientific_name},
+            ).first()
+
+            if existing is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This plant species already exists in the database.",
+                )
+
+            # Write: insert the new plant species record.
+            conn.execute(
+                text("CALL add_plant_species(:common_name_in, :scientific_name_in, :genus_in, :img_url_in)"),
+                {
+                    "common_name_in": payload.common_name,
+                    "scientific_name_in": payload.scientific_name,
+                    "genus_in": payload.genus,
+                    "img_url_in": payload.img_url,
+                },
+            )
+
+            return {
+                    "common_name_in": payload.common_name,
+                    "scientific_name_in": payload.scientific_name,
+                    "genus_in": payload.genus,
+                    "img_url_in": payload.img_url,
+                }
+
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="This plant species already exists.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while adding a new plant species: {exc}",
+        ) from exc
 
 def get_plant_species_url(scientific_name: str, engine: Engine) -> str:
     """

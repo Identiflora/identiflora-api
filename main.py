@@ -9,9 +9,11 @@ from fastapi.staticfiles import StaticFiles
 
 from database_api_helpers import (build_engine,
                                   IncorrectIdentificationRequest,
+                                  PlantSpeciesRequest,
                                   UserRegistrationRequest,
                                   UserLoginRequest,
                                   record_incorrect_identification,
+                                  record_plant_species,
                                   get_plant_species_url,
                                   record_user_registration,
                                   user_login,
@@ -36,6 +38,11 @@ engine = build_engine()
 def add_incorrect_identification(payload: IncorrectIdentificationRequest):
     """Route handler that records an incorrect identification via helper logic."""
     return record_incorrect_identification(payload, engine)
+
+@app.post("/plant-species")
+def add_plant_species(payload: PlantSpeciesRequest):
+    """Route handler that records a new plant species via helper logic."""
+    return record_plant_species(payload, engine)
 
 @app.get("/plant-species-url")
 def get_plant_species_url_router(scientific_name: str):
