@@ -17,7 +17,8 @@ from database_api_helpers import (build_engine,
                                   get_plant_species_url,
                                   record_user_registration,
                                   user_login,
-                                  get_user_username
+                                  get_user_username,
+                                  get_count_user
                                 )
 
 HOST = "localhost"
@@ -63,6 +64,11 @@ def login_user(payload: UserLoginRequest):
 def get_username(user_id: int):
     """Route handler that gets username data via helper logic."""
     return get_user_username(user_id, engine)
+
+@app.get("/user/count")
+def get_user_count():
+    """Route handler that gets user count via helper logic."""
+    return get_count_user(engine)
 
 # directory containing plant images. Calls to api: http://localhost:8000/plant-images/API_test_img.png
 # app.mount(
