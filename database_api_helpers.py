@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from urllib.parse import quote_plus, urljoin
 
 from fastapi import HTTPException
@@ -35,19 +35,19 @@ class PlantSpeciesRequest(BaseModel):
     Request body for reporting a new plant species.
     """
 
-    common_name: str = Field(..., gt=0, description="common name of plant species")
+    common_name: Optional[str] = Field("NaN", gt=0, description="common name of plant species")
     scientific_name: str = Field(..., gt=0, description="scientific name of plant species")
-    genus: str = Field(..., gt=0, description="genus of plant species")
+    genus: Optional[str] = Field("NaN", gt=0, description="genus of plant species")
     img_url: str = Field(..., gt=0, description="url to image of plant species")
 
-class PlantSpeciesURLRequest(BaseModel):
-    """
-    Request body for requesting a plant img url.
-    """
-    scientific_name: str = Field(..., description="Scientific (Latin) name of the plant to query.")
-    host: str = Field(..., description="image server host")
-    port: int = Field(..., description="port to access image server")
-    img_path: str = Field(..., description="path to access images (eg. /plant-images)")
+# class PlantSpeciesURLRequest(BaseModel):
+#     """
+#     Request body for requesting a plant img url.
+#     """
+#     scientific_name: str = Field(..., description="Scientific (Latin) name of the plant to query.")
+#     host: str = Field(..., description="image server host")
+#     port: int = Field(..., description="port to access image server")
+#     img_path: str = Field(..., description="path to access images (eg. /plant-images)")
 
 class UserRegistrationRequest(BaseModel):
     """
