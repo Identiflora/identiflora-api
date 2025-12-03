@@ -35,10 +35,10 @@ class PlantSpeciesRequest(BaseModel):
     Request body for reporting a new plant species.
     """
 
-    common_name: Optional[str] = Field("NaN", gt=0, description="common name of plant species")
-    scientific_name: str = Field(..., gt=0, description="scientific name of plant species")
-    genus: Optional[str] = Field("NaN", gt=0, description="genus of plant species")
-    img_url: str = Field(..., gt=0, description="url to image of plant species")
+    common_name: Optional[str] = Field("NaN", min_length=1, description="common name of plant species")
+    scientific_name: str = Field(..., min_length=1, description="scientific name of plant species")
+    genus: Optional[str] = Field("NaN", min_length=1, description="genus of plant species")
+    img_url: str = Field(..., min_length=1, description="url to image of plant species")
 
 # class PlantSpeciesURLRequest(BaseModel):
 #     """
