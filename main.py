@@ -7,7 +7,19 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from database_api_helpers import build_engine, IncorrectIdentificationRequest, record_incorrect_identification, get_plant_species_url
+from database_api_helpers import (build_engine,
+                                  IncorrectIdentificationRequest,
+                                  PlantSpeciesRequest,
+                                  UserRegistrationRequest,
+                                  UserLoginRequest,
+                                  record_incorrect_identification,
+                                  record_plant_species,
+                                  get_plant_species_url,
+                                  record_user_registration,
+                                  user_login,
+                                  get_user_username,
+                                  get_count_user
+                                )
 
 HOST = "localhost"
 PORT = 8000
@@ -23,27 +35,50 @@ app = FastAPI(
 
 engine = build_engine()
 
-
 @app.post("/incorrect-identifications")
 def add_incorrect_identification(payload: IncorrectIdentificationRequest):
     """Route handler that records an incorrect identification via helper logic."""
     return record_incorrect_identification(payload, engine)
 
+@app.post("/plant-species")
+def add_plant_species(payload: PlantSpeciesRequest):
+    """Route handler that records a new plant species via helper logic."""
+    return record_plant_species(payload, engine)
+
 @app.get("/plant-species-url")
-def get_plant_species_url_router(sci_name: str):
-    """Route handler that records a plant species img url request via helper logic."""
-    return get_plant_species_url(sci_name, HOST, PORT, PLANT_IMG_PATH, engine)
+def get_plant_species_url_router(scientific_name: str):
+    """Route handler that returns a plant species img url using query parameters."""
+    return get_plant_species_url(scientific_name, engine)
+
+@app.post("/user/register")
+def add_registered_user(payload: UserRegistrationRequest):
+    """Route handler that records user registration data via helper logic."""
+    return record_user_registration(payload, engine)
+
+@app.post("/user/login")
+def login_user(payload: UserLoginRequest):
+    """Route handler that records user registration data via helper logic."""
+    return user_login(payload, engine)
+
+@app.get("/user/{user_id}")
+def get_username(user_id: int):
+    """Route handler that gets username data via helper logic."""
+    return get_user_username(user_id, engine)
+
+@app.get("/user/count")
+def get_user_count():
+    """Route handler that gets user count via helper logic."""
+    return get_count_user(engine)
 
 # directory containing plant images. Calls to api: http://localhost:8000/plant-images/API_test_img.png
-app.mount(
-    "/plant-images",
-    StaticFiles(directory=PLANT_IMG_LOC)
-)
-
+# app.mount(
+#     "/plant-images",
+#     StaticFiles(directory=PLANT_IMG_LOC)
+# )
 
 # if __name__ == "__main__":
 #     uvicorn.run(
-#         "database_api:app",
+#         "main:app",
 #         host=HOST,
 #         port=PORT,
 #         reload=False,

@@ -1,0 +1,3 @@
+# ignore password file
+database_password.txt
+__pycache__/

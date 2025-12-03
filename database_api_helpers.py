@@ -1,8 +1,7 @@
-﻿#!/usr/bin/env python3
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from urllib.parse import quote_plus, urljoin
 
 from fastapi import HTTPException
@@ -10,8 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine, Row
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-
-
+from passlib.hash import bcrypt
 
 DATABASE_PASSWORD_PATH = "database_password.txt"
 DATABASE_NAME = "identiflora_testing_db"
@@ -23,7 +21,6 @@ try:
 except FileNotFoundError:
     db_password = ""
 
-
 class IncorrectIdentificationRequest(BaseModel):
     """
     Request body for reporting an incorrect identification.
@@ -33,6 +30,41 @@ class IncorrectIdentificationRequest(BaseModel):
     correct_species_id: int = Field(..., gt=0, description="Species that should have been returned")
     incorrect_species_id: int = Field(..., gt=0, description="Species the model predicted")
 
+class PlantSpeciesRequest(BaseModel):
+    """
+    Request body for reporting a new plant species.
+    """
+
+    common_name: Optional[str] = Field("NaN", min_length=1, description="common name of plant species")
+    scientific_name: str = Field(..., min_length=1, description="scientific name of plant species")
+    genus: Optional[str] = Field("NaN", min_length=1, description="genus of plant species")
+    img_url: str = Field(..., min_length=1, description="url to image of plant species")
+
+# class PlantSpeciesURLRequest(BaseModel):
+#     """
+#     Request body for requesting a plant img url.
+#     """
+#     scientific_name: str = Field(..., description="Scientific (Latin) name of the plant to query.")
+#     host: str = Field(..., description="image server host")
+#     port: int = Field(..., description="port to access image server")
+#     img_path: str = Field(..., description="path to access images (eg. /plant-images)")
+
+class UserRegistrationRequest(BaseModel):
+    """
+    Request body for reporting user registration. Ensures empty strings trigger invalid requests.
+    """
+
+    user_email: str = Field(..., min_length=1, description="Email from user input")
+    username: str = Field(..., min_length=1, description="Username from user input")
+    password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
+
+class UserLoginRequest(BaseModel):
+    """
+    Request body for reporting user login. Ensures empty strings trigger invalid requests.
+    """
+
+    user_email: str = Field(..., min_length=1, description="Email from user input")
+    password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
 
 def build_engine() -> Engine:
     """
@@ -180,8 +212,71 @@ def record_incorrect_identification(payload: IncorrectIdentificationRequest, eng
             detail=f"Database error while creating incorrect identification: {exc}",
         ) from exc
 
+def record_plant_species(payload: PlantSpeciesRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Add a new plant species to database
 
-def get_plant_species_url(scientific_name: str, host: str, port: int, img_path: str, engine: Engine) -> str:
+    Parameters
+    ----------
+    payload : PlantSpeciesRequest
+        Request data containing common_name, scientific_name, genus, and img_url
+
+    Returns
+    -------
+    dict
+        Confirmation payload mirroring the created row.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, referenced rows are missing, or database errors occur.
+    """
+
+    try:
+        with engine.begin() as conn:
+
+            # Read-only duplicate guard to avoid multiple plant species of same type.
+            existing = conn.execute(
+                text("CALL check_plant_species_exists(:scientific_name_in)"),
+                {"scientific_name_in": payload.scientific_name},
+            ).first()
+
+            if existing is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This plant species already exists in the database.",
+                )
+
+            # Write: insert the new plant species record.
+            conn.execute(
+                text("CALL add_plant_species(:common_name_in, :scientific_name_in, :genus_in, :img_url_in)"),
+                {
+                    "common_name_in": payload.common_name,
+                    "scientific_name_in": payload.scientific_name,
+                    "genus_in": payload.genus,
+                    "img_url_in": payload.img_url,
+                },
+            )
+
+            return {
+                    "common_name_in": payload.common_name,
+                    "scientific_name_in": payload.scientific_name,
+                    "genus_in": payload.genus,
+                    "img_url_in": payload.img_url,
+                }
+
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="This plant species already exists.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while adding a new plant species: {exc}",
+        ) from exc
+
+def get_plant_species_url(scientific_name: str, engine: Engine) -> str:
     """
     Fetch the image URL for a plant species identified by its scientific name. Assumes img_url is more like img_name (eg. test_img.png).
 
@@ -189,12 +284,12 @@ def get_plant_species_url(scientific_name: str, host: str, port: int, img_path: 
     ----------
     scientific_name : str
         Scientific (Latin) name of the plant to query.
-    host: str
-        image server host
-    port: 
-        port to access image server
-    img_path:
-        path to access images (eg. /plant-images)
+    host : str
+        Host serving the images.
+    port : int
+        Port for the image server.
+    img_path : str
+        Path prefix where images are served (e.g. /plant-images).
     engine : sqlalchemy.engine.Engine
         Database engine used to perform the query.
 
@@ -222,9 +317,7 @@ def get_plant_species_url(scientific_name: str, host: str, port: int, img_path: 
                 {"scientific_name": scientific_name},
                 "Plant species not found.",
             )
-            # join base path with image name
-            img_path = os.path.join(img_path, row['img_url'])
-            return build_base_url(host, port, img_path)
+            return row['img_url']
         
     except SQLAlchemyError as exc:
         raise HTTPException(
@@ -254,3 +347,213 @@ def build_base_url(host: str, port: int, path: str):
     path = path.lstrip('/')
     host_port = f'{host}:{port}'
     return os.path.join('http://', host_port, path)
+
+def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Persist a user registration, validating referenced rows and constraints.
+
+    Parameters
+    ----------
+    payload : UserRegistrationRequest
+        Request data containing username, email, and password hash.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    dict
+        Confirmation payload containing the user's ID.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, referenced rows are missing, or database errors occur.
+    """
+    try:
+        with engine.begin() as conn:
+            # Read-only duplicate guard to avoid duplicate emails for submissions.
+            email_existing = conn.execute(
+                text("CALL check_user_email_exists(:email)"),
+                {"email": payload.user_email},
+            ).first()
+
+            if email_existing is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This email has already been recorded.",
+                )
+            
+            # Read-only duplicate guard to avoid duplicate usernames for submissions.
+            username_existing = conn.execute(
+                text("CALL check_username_exists(:username)"),
+                {"username": payload.username},
+            ).first()
+
+            if username_existing is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This username has already been recorded.",
+                )
+            
+            # Second hashing of password (recommended for extra security) 
+            # This is done after user existing checks to avoid unnecessary runtime
+            password_hash_2 = bcrypt.hash(payload.password_hash)
+
+            # Write: insert the user account information with id and timestamp. This will also get the newly created user's ID.
+            user = conn.execute(
+                text("CALL add_user(:user_email_in, :username_in, :user_password_in)"),
+                {
+                    "user_email_in": payload.user_email,
+                    "username_in": payload.username,
+                    "user_password_in": password_hash_2
+                },
+            ).first()
+
+            return {"user_id": user.user_id}
+
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Email or username already registered.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while creating user registration: {exc}",
+        ) from exc
+    
+def user_login(payload: UserLoginRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Persist a user login, validating referenced rows and constraints.
+
+    Parameters
+    ----------
+    payload : UserLoginRequest
+        Request data containing email and password hash.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    dict
+        Confirmation payload containing the user's ID.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, referenced rows are missing, or database errors occur.
+    """
+    try:
+        with engine.begin() as conn:
+            user = conn.execute(
+                text("CALL login_user(:user_email_in)"),
+                {
+                    "user_email_in": payload.user_email,
+                },
+            ).first()
+
+            if user is None:
+                raise HTTPException(status_code=401, detail="No user exists with these credentials.")
+
+            if not bcrypt.verify(payload.password_hash, user.password_hash):
+                raise HTTPException(status_code=401, detail="No user exists with these credentials.")
+
+            return {"user_id": user.user_id}
+
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="No user exists with these credentials.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while logging in user: {exc}",
+        ) from exc
+
+def get_user_username(user_id: int, engine: Engine) -> Dict[str, Any]:
+    """
+    Fetch user's username with their ID.
+
+    Parameters
+    ----------
+    user_id : int
+        User's verification ID.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    dict
+        Payload containing user's username.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, ID is not valid or database errors occurred.
+    """
+    try:
+        with engine.connect() as conn:
+            user = conn.execute(
+                text("CALL get_user(:user_id_in)"),
+                {
+                    "user_id_in": user_id,
+                },
+            ).first()
+
+            if user is None:
+                raise HTTPException(status_code=404, detail="User with this ID could not be found.")
+            
+            return {"username": user.username}
+    
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while fetching username: {exc}",
+        ) from exc
+
+def get_count_user(engine: Engine) -> Dict[str, Any]:
+    """
+    Fetch user count from database.
+
+    Parameters
+    ----------
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    dict
+        Payload containing user count.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, there are no users or database errors occurred.
+    """
+    try:
+        with engine.connect() as conn:
+            count = conn.execute(
+                text("CALL get_num_users()"),
+            ).first()
+
+            if count is None:
+                raise HTTPException(status_code=404, detail="There are no users to count")
+            
+            return {"user_count": count[0]}
+    
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="No users found.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while fetching user count: {exc}",
+        ) from exc
