@@ -65,7 +65,7 @@ def get_username(user_id: int):
     """Route handler that gets username data via helper logic."""
     return get_user_username(user_id, engine)
 
-@app.get("/user/count")
+@app.post("/user-count")
 def get_user_count():
     """Route handler that gets user count via helper logic."""
     return get_count_user(engine)
