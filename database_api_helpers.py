@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from passlib.hash import bcrypt
 
 DATABASE_PASSWORD_PATH = "database_password.txt"
-DATABASE_NAME = "identiflora_testing_db"
+DATABASE_NAME = "identiflora_db"
 
 # Resolve password from file at import time; environment variable DB_PASSWORD still overrides in build_engine.
 try:
@@ -495,7 +495,7 @@ def get_user_username(user_id: int, engine: Engine) -> Dict[str, Any]:
     try:
         with engine.connect() as conn:
             user = conn.execute(
-                text("CALL get_user(:user_id_in)"),
+                text("CALL get_user_leaderboard_info(:user_id_in)"),
                 {
                     "user_id_in": user_id,
                 },
@@ -515,6 +515,52 @@ def get_user_username(user_id: int, engine: Engine) -> Dict[str, Any]:
         raise HTTPException(
             status_code=500,
             detail=f"Database error while fetching username: {exc}",
+        ) from exc
+
+def get_points(user_id: int, engine: Engine) -> Dict[str, Any]:
+    """
+    Fetch user's points with their ID.
+
+    Parameters
+    ----------
+    user_id : int
+        User's verification ID.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    dict
+        Payload containing user's points.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, ID is not valid or database errors occurred.
+    """
+    try:
+        with engine.connect() as conn:
+            user = conn.execute(
+                text("CALL get_user_leaderboard_info(:user_id_in)"),
+                {
+                    "user_id_in": user_id,
+                },
+            ).first()
+
+            if user is None:
+                raise HTTPException(status_code=404, detail="User with this ID could not be found.")
+            
+            return {"pts": user.global_points}
+    
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while fetching user points: {exc}",
         ) from exc
 
 def get_count_user(engine: Engine) -> Dict[str, Any]:

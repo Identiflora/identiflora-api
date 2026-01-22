@@ -18,6 +18,7 @@ from database_api_helpers import (build_engine,
                                   record_user_registration,
                                   user_login,
                                   get_user_username,
+                                  get_points,
                                   get_count_user
                                 )
 
@@ -60,10 +61,15 @@ def login_user(payload: UserLoginRequest):
     """Route handler that records user registration data via helper logic."""
     return user_login(payload, engine)
 
-@app.get("/user/{user_id}")
+@app.get("/username/{user_id}")
 def get_username(user_id: int):
     """Route handler that gets username data via helper logic."""
     return get_user_username(user_id, engine)
+
+@app.get("/user-pts/{user_id}")
+def get_user_points(user_id: int):
+    """Route handler that gets username data via helper logic."""
+    return get_points(user_id, engine)
 
 @app.post("/user-count")
 def get_user_count():
@@ -76,10 +82,10 @@ def get_user_count():
 #     StaticFiles(directory=PLANT_IMG_LOC)
 # )
 
-# if __name__ == "__main__":
-#     uvicorn.run(
-#         "main:app",
-#         host=HOST,
-#         port=PORT,
-#         reload=False,
-#     )
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host=HOST,
+        port=PORT,
+        reload=False,
+    )
