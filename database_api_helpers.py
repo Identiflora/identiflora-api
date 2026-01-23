@@ -24,13 +24,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 1000000
 if JWT_SECRET_KEY is None:
     raise RuntimeError("JWT_SECRET_KEY environment variable is not set")
 
-# Resolve password from file at import time; environment variable DB_PASSWORD still overrides in build_engine.
-try:
-    with open(DATABASE_PASSWORD_PATH) as file:
-        db_password = file.read().strip()
-except FileNotFoundError:
-    db_password = ""
-
 class IncorrectIdentificationRequest(BaseModel):
     """
     Request body for reporting an incorrect identification.
@@ -92,7 +85,7 @@ def build_engine() -> Engine:
     """
     try:
         user = quote_plus(os.getenv("DB_USER", "root"))
-        password = quote_plus(os.getenv("DB_PASSWORD", db_password))
+        password = quote_plus(os.getenv("DB_PASSWORD"))
         host = os.getenv("DB_HOST", "localhost")
         port = os.getenv("DB_PORT", "3306")
         db_name = os.getenv("DB_NAME", DATABASE_NAME)
