@@ -11,8 +11,18 @@ from sqlalchemy.engine import Engine, Row
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from passlib.hash import bcrypt
 
+from datetime import datetime, timedelta, timezone
+from jose import jwt
+
 DATABASE_PASSWORD_PATH = "database_password.txt"
 DATABASE_NAME = "identiflora_db"
+
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 1000000
+
+if JWT_SECRET_KEY is None:
+    raise RuntimeError("JWT_SECRET_KEY environment variable is not set")
 
 # Resolve password from file at import time; environment variable DB_PASSWORD still overrides in build_engine.
 try:
@@ -603,3 +613,34 @@ def get_count_user(engine: Engine) -> Dict[str, Any]:
             status_code=500,
             detail=f"Database error while fetching user count: {exc}",
         ) from exc
+    
+def create_access_token(subject: str) -> str:
+    """
+    Create a signed JWT access token.
+
+    Parameters
+    ----------
+    subject : str
+        The user identifier to embed in the token (e.g., user_id)
+
+    Returns
+    -------
+    str
+        Encoded JWT
+    """
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
+    payload = {
+        "sub": subject,     # subject = authenticated user id
+        "iat": now,
+        "exp": expire,
+    }
+
+    encoded_jwt = jwt.encode(
+        payload,
+        JWT_SECRET_KEY,
+        algorithm=JWT_ALGORITHM,
+    )
+
+    return encoded_jwt

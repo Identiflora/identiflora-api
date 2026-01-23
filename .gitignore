@@ -1,4 +1,5 @@
-# ignore password file
 database_password.txt
 __pycache__/
 /auth_plan.txt
+/.venv
+/.env
