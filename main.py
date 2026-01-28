@@ -1,6 +1,10 @@
 ﻿#!/usr/bin/env python3
 from __future__ import annotations
 
+from dotenv import load_dotenv
+
+import uvicorn
+
 from fastapi import FastAPI
 
 from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest
@@ -8,18 +12,20 @@ from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequ
 from app.auth.login_signup import user_login, record_user_registration
 
 from app.core.db_connection import build_engine
+from app.core.users import get_count_user, get_points, get_user_username
 
 from app.db.incorrect_identification import record_incorrect_identification
 from app.db.plant_species import record_plant_species, get_plant_species_url
 
-from app.routers.users import get_count_user, get_points, get_user_username
 
 
 HOST = "localhost"
 PORT = 8000
 
-PLANT_IMG_LOC = '/Users/jackson/Classes/plant-images'
-PLANT_IMG_PATH = '/plant-images'
+# PLANT_IMG_LOC = '/Users/jackson/Classes/plant-images'
+# PLANT_IMG_PATH = '/plant-images'
+
+load_dotenv()
 
 app = FastAPI(
     title="Identiflora Database API",
@@ -75,10 +81,10 @@ def get_user_count():
 #     StaticFiles(directory=PLANT_IMG_LOC)
 # )
 
-# if __name__ == "__main__":
-#     uvicorn.run(
-#         "main:app",
-#         host=HOST,
-#         port=PORT,
-#         reload=False,
-#     )
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host=HOST,
+        port=PORT,
+        reload=False,
+    )
