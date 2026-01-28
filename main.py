@@ -1,26 +1,19 @@
 ﻿#!/usr/bin/env python3
 from __future__ import annotations
 
-import os
-
-import uvicorn
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 
-from database_api_helpers import (build_engine,
-                                  IncorrectIdentificationRequest,
-                                  PlantSpeciesRequest,
-                                  UserRegistrationRequest,
-                                  UserLoginRequest,
-                                  record_incorrect_identification,
-                                  record_plant_species,
-                                  get_plant_species_url,
-                                  record_user_registration,
-                                  user_login,
-                                  get_user_username,
-                                  get_points,
-                                  get_count_user
-                                )
+from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest
+
+from app.auth.login_signup import user_login, record_user_registration
+
+from app.core.db_connection import build_engine
+
+from app.db.incorrect_identification import record_incorrect_identification
+from app.db.plant_species import record_plant_species, get_plant_species_url
+
+from app.routers.users import get_count_user, get_points, get_user_username
+
 
 HOST = "localhost"
 PORT = 8000

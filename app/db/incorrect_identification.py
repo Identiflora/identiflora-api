@@ -35,7 +35,6 @@ def record_incorrect_identification(payload: IncorrectIdentificationRequest, eng
 
     try:
         with engine.begin() as conn:
-
             # Read-only duplicate guard to avoid multiple incorrect records per submission.
             existing = conn.execute(
                 text("CALL check_incorrect_sub_exists(:id)"),
