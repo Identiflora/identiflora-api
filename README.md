@@ -10,7 +10,7 @@ Required environment variables (create a .env file for local development):
 - DB_HOST=your_db_host (likely localhost)
 - DB_NAME=your_db_name
 - DB_PASSWORD=your_db_password
-- DB_PORT=your_db_port (likely 8000)
+- DB_PORT=your_db_port (likely 3306)
 - DB_USER=your_db_user
 - SECRET_KEY=your_secret_key
 

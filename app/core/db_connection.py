@@ -7,7 +7,7 @@ from urllib.parse import quote_plus
 
 import os
 
-DATABASE_NAME = 'identiflora_db'
+DATABASE_NAME = 'identiflora_testing_db'
 
 def build_engine() -> Engine:
     """

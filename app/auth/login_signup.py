@@ -7,10 +7,14 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from passlib.hash import bcrypt
+from passlib.hash import argon2
+from datetime import datetime, timedelta, timezone
 
 # local imports
 from app.models.requests import UserRegistrationRequest, UserLoginRequest
+from app.auth.token import create_access_token
+
+TOKEN_EXPIRATION_TIME_MINUTES = 10
 
 def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -> Dict[str, Any]:
     """
@@ -61,7 +65,7 @@ def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -
             
             # Second hashing of password (recommended for extra security) 
             # This is done after user existing checks to avoid unnecessary runtime
-            password_hash_2 = bcrypt.hash(payload.password_hash)
+            password_hash_2 = argon2.hash(payload.password_hash)
 
             # Write: insert the user account information with id and timestamp. This will also get the newly created user's ID.
             user = conn.execute(
@@ -73,8 +77,13 @@ def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -
                 },
             ).first()
 
-            return {"user_id": user.user_id}
-
+        # Automatically log in the user after registration
+        first_login_request = UserLoginRequest(
+            user_email=payload.user_email,
+            password_hash=payload.password_hash,
+        )
+        return user_login(first_login_request, engine) 
+        
     except IntegrityError as exc:
         raise HTTPException(
             status_code=409,
@@ -119,10 +128,16 @@ def user_login(payload: UserLoginRequest, engine: Engine) -> Dict[str, Any]:
             if user is None:
                 raise HTTPException(status_code=401, detail="No user exists with these credentials.")
 
-            if not bcrypt.verify(payload.password_hash, user.password_hash):
+            if not argon2.verify(payload.password_hash, user.password_hash):
                 raise HTTPException(status_code=401, detail="No user exists with these credentials.")
 
-            return {"user_id": user.user_id}
+            token_input = {
+                "sub": user.user_id,
+                "exp": datetime.now(tz=timezone.utc) + timedelta(minutes=TOKEN_EXPIRATION_TIME_MINUTES),
+                "iat": datetime.now(tz=timezone.utc),
+            }
+
+            return {"token_type": "Bearer", "access_token": create_access_token(token_input), "expires_in": TOKEN_EXPIRATION_TIME_MINUTES}
 
     except IntegrityError as exc:
         raise HTTPException(

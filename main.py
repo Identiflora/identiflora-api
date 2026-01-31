@@ -17,7 +17,8 @@ from app.core.users import get_count_user, get_points, get_user_username
 from app.db.incorrect_identification import record_incorrect_identification
 from app.db.plant_species import record_plant_species, get_plant_species_url
 
-
+import logging
+logging.basicConfig(level=logging.INFO)
 
 HOST = "localhost"
 PORT = 8000
@@ -43,6 +44,7 @@ def add_incorrect_identification(payload: IncorrectIdentificationRequest):
 @app.post("/plant-species")
 def add_plant_species(payload: PlantSpeciesRequest):
     """Route handler that records a new plant species via helper logic."""
+    logging.info("HIT /plant-species: %s", payload.scientific_name)
     return record_plant_species(payload, engine)
 
 @app.get("/plant-species-url")

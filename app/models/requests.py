@@ -45,3 +45,12 @@ class UserLoginRequest(BaseModel):
 
     user_email: str = Field(..., min_length=1, description="Email from user input")
     password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
+
+class User(BaseModel):
+    """
+    Docstring for User
+    """
+    user_email: str = Field(..., min_length=1, description="Email from user input")
+    username: str = Field(..., min_length=1, description="Username from user input")
+    user_id: int = Field(..., gt=0, description="User id from database")
+    password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
