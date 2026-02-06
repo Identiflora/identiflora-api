@@ -47,8 +47,8 @@ def add_plant_species(payload: PlantSpeciesRequest):
     logging.info("HIT /plant-species: %s", payload.scientific_name)
     return record_plant_species(payload, engine)
 
-@app.get("/plant-species-url")
-def get_plant_species_url_router(scientific_name: str):
+@app.get("/plant-species-url/{scientific_name}")
+def get_plant_species_url_router(scientific_name: str): 
     """Route handler that returns a plant species img url using query parameters."""
     return get_plant_species_url(scientific_name, engine)
 
