@@ -3,7 +3,10 @@ The Python API in `Database/api/database_api.py` exposes a minimal endpoint to r
 
 ### Requirements
 - Python 3.10+
-- Install dependencies: `pip install -r requirements.txt`
+- Install dependencies:
+  ```bash 
+  pip install -r requirements.txt
+  ```
 
 ### Configuration
 Required environment variables (create a .env file for local development):
