@@ -108,10 +108,10 @@ def get_plant_species_url(scientific_name: str, engine: Engine) -> str:
     try:
         with engine.connect() as conn:
             payload = {"scientific_name": scientific_name}
-            row = conn.execute(text('CALL get_plant_species_img_url(:scientific_name)'), payload).first()
-            if row is None:
+            result = conn.execute(text('CALL get_plant_species_img_url(:scientific_name)'), payload).first()
+            if result is None:
                 raise HTTPException(status_code=404, detail="Plant species not found.")
-            return row['img_url']
+            return result.img_url
         
     except SQLAlchemyError as exc:
         raise HTTPException(
