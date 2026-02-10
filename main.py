@@ -7,12 +7,12 @@ import uvicorn
 
 from fastapi import FastAPI
 
-from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest
+from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest, UserPointAddRequest
 
 from app.auth.login_signup import user_login, record_user_registration
 
 from app.core.db_connection import build_engine
-from app.core.users import get_count_user, get_points, get_user_username
+from app.core.users import get_count_user, get_points, get_user_username, add_user_global_points
 
 from app.db.incorrect_identification import record_incorrect_identification
 from app.db.plant_species import record_plant_species, get_plant_species_url
@@ -76,6 +76,11 @@ def get_user_points(user_id: int):
 def get_user_count():
     """Route handler that gets user count via helper logic."""
     return get_count_user(engine)
+
+@app.post("/add-global-user-pts")
+def get_user_count(payload: UserPointAddRequest):
+    """Route handler that adds global points to user via helper logic."""
+    return add_user_global_points(payload, engine)
 
 # directory containing plant images. Calls to api: http://localhost:8000/plant-images/API_test_img.png
 # app.mount(

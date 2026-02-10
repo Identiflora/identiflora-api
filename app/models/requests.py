@@ -54,3 +54,11 @@ class User(BaseModel):
     username: str = Field(..., min_length=1, description="Username from user input")
     user_id: int = Field(..., gt=0, description="User id from database")
     password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
+
+class UserPointAddRequest(BaseModel):
+    """
+    Request body for reporting user login. Ensures empty strings trigger invalid requests.
+    """
+
+    user_token: str = Field(..., min_length=1, description="Token from user's device")
+    add_points: int = Field(..., gt=0, description="Points to add to user account")
