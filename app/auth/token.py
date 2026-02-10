@@ -19,5 +19,5 @@ def create_access_token(data: dict):
     return encoded_jwt
 
 def get_user_id_from_token(given_token: str):
-    user_id = jwt.decode(token=given_token)
+    user_id = jwt.decode(token=given_token, key=SECRET_KEY, algorithms=ALGORITHM)
     return user_id
