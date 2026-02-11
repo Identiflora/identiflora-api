@@ -168,18 +168,19 @@ def add_user_global_points(payload: UserPointAddRequest, engine: Engine) -> Dict
         user_id = get_user_id_from_token(payload.user_token)
 
         with engine.connect() as conn:
-            count = conn.execute(
+            user = conn.execute(
                 text("CALL add_user_global_points(:user_id_in, :add_points_in)"),
                 {
                     "user_id_in": user_id,
                     "add_points_in": payload.add_points
                 },
-            ).first()
+            )
+            conn.commit()
 
-            if count is None:
-                raise HTTPException(status_code=404, detail="There are no users to count")
+            if user is None:
+                raise HTTPException(status_code=404, detail="User with this ID could not be found.")
             
-            return {"success": 1}
+            return {"success": True}
     
     except IntegrityError as exc:
         raise HTTPException(
