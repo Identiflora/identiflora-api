@@ -5,11 +5,14 @@ from dotenv import load_dotenv
 
 import uvicorn
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from typing import Annotated
+
 
 from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest
 
 from app.auth.login_signup import user_login, record_user_registration
+from app.auth.token import get_current_user
 
 from app.core.db_connection import build_engine
 from app.core.users import get_count_user, get_points, get_user_username
@@ -37,7 +40,7 @@ app = FastAPI(
 engine = build_engine()
 
 @app.post("/incorrect-identifications")
-def add_incorrect_identification(payload: IncorrectIdentificationRequest):
+def add_incorrect_identification(payload: IncorrectIdentificationRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that records an incorrect identification via helper logic."""
     return record_incorrect_identification(payload, engine)
 
