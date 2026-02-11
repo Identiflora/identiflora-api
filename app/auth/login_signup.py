@@ -132,7 +132,7 @@ def user_login(payload: UserLoginRequest, engine: Engine) -> Dict[str, Any]:
                 raise HTTPException(status_code=401, detail="No user exists with these credentials.")
 
             token_input = {
-                "sub": user.user_id,
+                "sub": str(user.user_id),
                 "exp": datetime.now(tz=timezone.utc) + timedelta(minutes=TOKEN_EXPIRATION_TIME_MINUTES),
                 "iat": datetime.now(tz=timezone.utc),
             }
