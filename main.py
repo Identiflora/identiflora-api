@@ -5,11 +5,12 @@ from dotenv import load_dotenv
 
 import uvicorn
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest, UserPointAddRequest
+from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest, UserPointAddRequest, UserAddGoogleUsernameRequest
 
-from app.auth.login_signup import user_login, record_user_registration
+from app.auth.login_signup import auth_google_login, user_login, record_user_registration
 
 from app.core.db_connection import build_engine
 from app.core.users import get_count_user, get_points, get_user_username, add_user_global_points
@@ -82,6 +83,12 @@ def get_user_count(payload: UserPointAddRequest):
     """Route handler that adds global points to user via helper logic."""
     return add_user_global_points(payload, engine)
 
+@app.post("/google-login/auth")
+def google_auth(payload: UserAddGoogleUsernameRequest, auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())):
+    """Route handler that attempts to decode and login Google user using their token."""
+    token = auth.credentials
+    return auth_google_login(payload, token, engine)
+    
 # directory containing plant images. Calls to api: http://localhost:8000/plant-images/API_test_img.png
 # app.mount(
 #     "/plant-images",

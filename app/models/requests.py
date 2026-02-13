@@ -62,3 +62,10 @@ class UserPointAddRequest(BaseModel):
 
     user_token: str = Field(..., min_length=1, description="Token from user's device")
     add_points: int = Field(..., gt=0, description="Points to add to user account")
+
+class UserAddGoogleUsernameRequest(BaseModel):
+    """
+    Request body for user google login account creation. Ensures empty strings trigger invalid requests.
+    """
+
+    username: str = Field(..., description="Optional username from user input")
