@@ -8,9 +8,9 @@ import uvicorn
 from fastapi import FastAPI, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest, UserPointAddRequest, UserAddGoogleUsernameRequest
+from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest, UserPointAddRequest, GoogleUserRegisterRequest
 
-from app.auth.login_signup import auth_google_login, user_login, record_user_registration
+from app.auth.login_signup import auth_google_account, add_google_account, user_login, record_user_registration
 
 from app.core.db_connection import build_engine
 from app.core.users import get_count_user, get_points, get_user_username, add_user_global_points
@@ -83,12 +83,17 @@ def get_user_count(payload: UserPointAddRequest):
     """Route handler that adds global points to user via helper logic."""
     return add_user_global_points(payload, engine)
 
-@app.post("/google-login/auth")
-def google_auth(payload: UserAddGoogleUsernameRequest, auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())):
-    """Route handler that attempts to decode and login Google user using their token."""
+@app.post("/google/auth")
+async def google_auth(auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())):
+    """Route handler that attempts to decode and authenticate Google user with their token."""
     token = auth.credentials
-    return auth_google_login(payload, token, engine)
-    
+    return await auth_google_account(token, engine)
+
+@app.post("/google/register")
+def google_auth(payload: GoogleUserRegisterRequest):
+    """Route handler that attempts to record user Google data via helper logic."""
+    return add_google_account(payload, engine)
+
 # directory containing plant images. Calls to api: http://localhost:8000/plant-images/API_test_img.png
 # app.mount(
 #     "/plant-images",

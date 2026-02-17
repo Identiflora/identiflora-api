@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 
 
 # local imports
-from app.models.requests import UserAddGoogleUsernameRequest, UserRegistrationRequest, UserLoginRequest
+from app.models.requests import GoogleUserRegisterRequest, UserRegistrationRequest, UserLoginRequest
 from app.auth.token import create_access_token
 
 TOKEN_EXPIRATION_TIME_MINUTES = 10
@@ -158,41 +158,27 @@ def user_login(payload: UserLoginRequest, engine: Engine) -> Dict[str, Any]:
             detail=f"Database error while logging in user: {exc}",
         ) from exc
 
-def register_google_account(email: str, username: str, engine: Engine):
-    if username != "" and email != "":
-        # Add check for existing email/username
-        with engine.begin() as conn:
-            # Read-only duplicate guard to avoid duplicate usernames for submissions.
-            username_existing = conn.execute(
-                text("CALL check_username_exists(:username)"),
-                {"username": username},
-            ).first()
+async def auth_google_account(token: str, engine: Engine) -> Dict[str, Any]:
+    """
+    Authenticate and login user via Google token to see if they exist in current database.
 
-            if username_existing is not None:
-                raise HTTPException(
-                    status_code=409,
-                    detail="This username has already been recorded.",
-                )
+    Parameters
+    ----------
+    token : str
+        Token from Google when using Google sign in on Flutter app.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
 
-            # No email duplicate guard is needed as user would have been logged in if email was duplicate
-            # Therefore, execute adding the user
-            user = conn.execute(
-                text("CALL add_google_user(:user_email_in, :username_in)"), # Add this function to database
-                {
-                    "user_email_in": email,
-                    "username_in": username
-                },
-            ).first()
+    Returns
+    -------
+    dict
+        Dynamic dictionary that could contain the user's email or a valid token.
 
-            if user is None:
-                raise
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail="Bad submission. Try verifying email and username are not null for google account registration."
-        )
-
-async def auth_google_login(payload: UserAddGoogleUsernameRequest, token: str, engine: Engine) -> Dict[str, Any]:
+    Raises
+    ------
+    HTTPException
+        If validation fails, Google token verification issues or database error occurs.
+    """
     try:
         load_dotenv()
         GOOGLE_ID = os.getenv("GOOGLE_SERVER_ID")
@@ -200,6 +186,7 @@ async def auth_google_login(payload: UserAddGoogleUsernameRequest, token: str, e
         user_email = user_info['email']
         
         with engine.begin() as conn:
+            # Attempt to login user to know if user exists
             user = conn.execute(
                 text("CALL login_user(:user_email_in)"),
                 {
@@ -207,25 +194,26 @@ async def auth_google_login(payload: UserAddGoogleUsernameRequest, token: str, e
                 },
             ).first()
 
-            # Attempt to create external google account if user doesn't exist
+            # If user doesn't exist, send email back to app for account creation
             if user is None:
-                register_google_account(user_email, payload.username, engine)
+                return {"email": user_email}
 
             # If user does exist but is not flagged as external, flag them now to link their google account
             elif not user.external_login:
-                user = conn.execute(
+                conn.execute(
                     text("CALL set_user_external_login(:user_id_in)"), # Add this function to database
                     {
                         "user_id_in": user.user_id,
                     },
-                ).first()
-            
+                )
+                conn.commit()
+
             token_input = {
                 "sub": str(user.user_id),
                 "exp": datetime.now(tz=timezone.utc) + timedelta(minutes=TOKEN_EXPIRATION_TIME_MINUTES),
                 "iat": datetime.now(tz=timezone.utc),
             }
-        
+
             return {"token_type": "Bearer", "access_token": create_access_token(token_input), "expires_in": TOKEN_EXPIRATION_TIME_MINUTES}
     
     except exceptions.GoogleAuthError as exc:
@@ -238,13 +226,81 @@ async def auth_google_login(payload: UserAddGoogleUsernameRequest, token: str, e
             status_code=400,
             detail="Google token verification failed."
         )
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while authenticating Google login: {exc}",
+        ) from exc
+    
+def add_google_account(payload: GoogleUserRegisterRequest, engine: Engine):
+    """
+    Register user via Google email and requested username in current database.
+
+    Parameters
+    ----------
+    payload : GoogleUserRegisterRequest
+        Request data containing user email and username.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    dict
+        Payload containing user generated token.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, user already exists or database error occurs.
+    """
+    try:
+        if payload.username == "" or payload.user_email == "":
+            raise HTTPException(status_code=400, detail="Bad submission. Payload should contain ")
+        
+        # Add check for existing email/username
+        with engine.begin() as conn:
+            # Read-only duplicate guard to avoid duplicate usernames for submissions.
+            username_existing = conn.execute(
+                text("CALL check_username_exists(:username)"),
+                {
+                    "username": payload.username
+                },
+            ).first()
+
+            if username_existing is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This username has already been recorded.",
+                )
+
+            # No email duplicate guard is needed as email would be blank string if email already existed.
+            # Therefore, execute adding the user.
+            user = conn.execute(
+                text("CALL add_external_user(:user_email_in, :username_in)"), # Add this function to database
+                {
+                    "user_email_in": payload.user_email,
+                    "username_in": payload.username
+                },
+            ).first()
+
+            if user is None:
+                raise HTTPException(status_code=409, detail="User with username already registered.")
+        
+            token_input = {
+                "sub": str(user.user_id),
+                "exp": datetime.now(tz=timezone.utc) + timedelta(minutes=TOKEN_EXPIRATION_TIME_MINUTES),
+                "iat": datetime.now(tz=timezone.utc),
+            }
+
+            return {"token_type": "Bearer", "access_token": create_access_token(token_input), "expires_in": TOKEN_EXPIRATION_TIME_MINUTES}
+    
     except IntegrityError as exc:
         raise HTTPException(
             status_code=409,
-            detail="Username already registered.",
+            detail="User with username already registered.",
         ) from exc
     except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Database error while authenticating google login: {exc}",
+            detail=f"Database error while registering Google account: {exc}",
         ) from exc
