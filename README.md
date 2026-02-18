@@ -16,6 +16,7 @@ Required environment variables (create a .env file for local development):
 - DB_PORT=your_db_port (likely 3306)
 - DB_USER=your_db_user
 - SECRET_KEY=your_secret_key
+- GOOGLE_SERVER_ID=google_server_id_from_app
 
 ### Run locally
 1. Ensure HOST and PORT variables are set appropriately
