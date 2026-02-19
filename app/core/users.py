@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from app.models.requests import UserPointAddRequest
-from app.auth.token import get_user_id_from_token
+from app.auth.token import get_sub_from_token
 
 def get_user_username(user_id: int, engine: Engine) -> Dict[str, Any]:
     """
@@ -165,7 +165,7 @@ def add_user_global_points(payload: UserPointAddRequest, engine: Engine) -> Dict
         If validation fails, there are no users or database errors occurred.
     """
     try:
-        user_id = get_user_id_from_token(payload.user_token)
+        user_id = int(get_sub_from_token(payload.user_token))
 
         with engine.connect() as conn:
             user = conn.execute(

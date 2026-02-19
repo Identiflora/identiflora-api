@@ -18,6 +18,6 @@ def create_access_token(data: dict):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def get_user_id_from_token(given_token: str):
+def get_sub_from_token(given_token: str):
     claims = jwt.decode(token=given_token, key=SECRET_KEY, algorithms=[ALGORITHM])
-    return int(claims.get("sub"))
+    return claims.get("sub")

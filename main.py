@@ -90,9 +90,10 @@ async def google_auth(auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())
     return await auth_google_account(token, engine)
 
 @app.post("/google/register")
-def google_auth(payload: GoogleUserRegisterRequest):
+def google_auth(payload: GoogleUserRegisterRequest, auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())):
     """Route handler that attempts to record user Google data via helper logic."""
-    return add_google_account(payload, engine)
+    token = auth.credentials
+    return add_google_account(token, payload, engine)
 
 # directory containing plant images. Calls to api: http://localhost:8000/plant-images/API_test_img.png
 # app.mount(

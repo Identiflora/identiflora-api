@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 
 # local imports
 from app.models.requests import GoogleUserRegisterRequest, UserRegistrationRequest, UserLoginRequest
-from app.auth.token import create_access_token
+from app.auth.token import create_access_token, get_sub_from_token
 
 TOKEN_EXPIRATION_TIME_MINUTES = 10
 
@@ -172,7 +172,7 @@ async def auth_google_account(token: str, engine: Engine) -> Dict[str, Any]:
     Returns
     -------
     dict
-        Dynamic dictionary that could contain the user's email or a valid token.
+        Payload containing user generated token.
 
     Raises
     ------
@@ -196,8 +196,14 @@ async def auth_google_account(token: str, engine: Engine) -> Dict[str, Any]:
 
             # If user doesn't exist, send email back to app for account creation
             if user is None:
-                return {"email": user_email}
+                token_input = {
+                    "sub": str(user_email),
+                    "exp": datetime.now(tz=timezone.utc) + timedelta(minutes=TOKEN_EXPIRATION_TIME_MINUTES),
+                    "iat": datetime.now(tz=timezone.utc),
+                }
 
+                return {"token_type": "Bearer", "access_token": create_access_token(token_input), "expires_in": TOKEN_EXPIRATION_TIME_MINUTES, "register": True}
+    
             # If user does exist but is not flagged as external, flag them now to link their google account
             elif not user.external_login:
                 conn.execute(
@@ -232,12 +238,14 @@ async def auth_google_account(token: str, engine: Engine) -> Dict[str, Any]:
             detail=f"Database error while authenticating Google login: {exc}",
         ) from exc
     
-def add_google_account(payload: GoogleUserRegisterRequest, engine: Engine):
+def add_google_account(token: str, payload: GoogleUserRegisterRequest, engine: Engine):
     """
     Register user via Google email and requested username in current database.
 
     Parameters
     ----------
+    token : str
+        Token from API function auth_google_account that was generated at the time of authentication that contains user email.
     payload : GoogleUserRegisterRequest
         Request data containing user email and username.
     engine : sqlalchemy.engine.Engine
@@ -254,9 +262,8 @@ def add_google_account(payload: GoogleUserRegisterRequest, engine: Engine):
         If validation fails, user already exists or database error occurs.
     """
     try:
-        if payload.username == "" or payload.user_email == "":
-            raise HTTPException(status_code=400, detail="Bad submission. Payload should contain ")
-        
+        user_email = get_sub_from_token(token)
+
         # Add check for existing email/username
         with engine.begin() as conn:
             # Read-only duplicate guard to avoid duplicate usernames for submissions.
@@ -278,7 +285,7 @@ def add_google_account(payload: GoogleUserRegisterRequest, engine: Engine):
             user = conn.execute(
                 text("CALL add_external_user(:user_email_in, :username_in)"), # Add this function to database
                 {
-                    "user_email_in": payload.user_email,
+                    "user_email_in": user_email,
                     "username_in": payload.username
                 },
             ).first()
