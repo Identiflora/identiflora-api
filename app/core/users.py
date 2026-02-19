@@ -1,3 +1,6 @@
+import random
+import string
+
 from __future__ import annotations
 
 from typing import Any, Dict
@@ -7,6 +10,8 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from passlib.hash import argon2
+
 from app.models.requests import UserPointAddRequest, UserPasswordResetRequest
 from app.auth.token import get_sub_from_token
 
@@ -220,27 +225,36 @@ def password_reset_mail_request(payload: UserPasswordResetRequest, engine: Engin
         with engine.connect() as conn:
 
             # Probably needs more verifiers than just email. Perhaps security question and/or region answer?
-            # Attempt to log user in to get user details
+            # Check if email, and by extension the user, does exist
             user = conn.execute(
-                text("CALL login_user(:user_email_in)"),
+                text("CALL check_user_email_exists(:user_email_in)"),
                 {
                     "user_email_in": payload.user_email
                 },
-            )
-
-            # Simple user doesn't exist catch
+            ).first()
+            
             if user is None:
                 raise HTTPException(status_code=404, detail="User with this email could not be found.")
             
-            # Check if user can login using external account, if so deny password reset
-            elif user.external_login:
-                raise HTTPException(status_code=403, detail="Action denied. User with this email is considered an external account.")
+            # Generate OTP (One Time Password) of defined length
+            values = string.ascii_letters + string.digits
+            hashed_otp = argon2.hash(''.join(random.choice(values) for _ in range(payload.otp_length)))
             
-            # Generate OTP (One Time Password)
+            # Call to database procedure which handles checking for external users, setting user password to OTP, and all OTP security logs
+            # Returns -1 on fail, 0 on external user found, and 1 on valid execution
+            out = conn.execute(
+                text("CALL otp_requested(:user_email_in, :otp_in)"),
+                {
+                    "user_email_in": payload.user_email,
+                    "otp_in": hashed_otp
+                },
+            ).first()
 
-            # Set OTP database flag and expiration timer (note: add OTP failed attempt count before OTP is wipped on database)
+            # If external user found then raise action denied exception
+            if out.result == 0:
+                raise HTTPException(status_code=403, detail="Action denied. User with this email is considered an external account.")
 
-            # Change user password to OTP
+            # note: add OTP user flag and login count failed attempt to wipe OTP on database
 
             # Email OTP to user email
 

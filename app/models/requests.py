@@ -72,7 +72,8 @@ class GoogleUserRegisterRequest(BaseModel):
 
 class UserPasswordResetRequest(BaseModel):
     """
-    Request body for user google login account creation. Ensures empty strings trigger invalid requests.
+    Request body for user password reset. Ensures empty strings trigger invalid requests.
     """
 
     user_email: str = Field(..., min_length=1, description="Email from user input")
+    otp_length: int = Field(..., gt=5, description="Length of generated one time password")
