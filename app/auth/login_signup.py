@@ -19,8 +19,9 @@ from dotenv import load_dotenv
 
 
 # local imports
-from app.models.requests import GoogleUserRegisterRequest, UserRegistrationRequest, UserLoginRequest
+from app.models.requests import GoogleUserRegisterRequest, UserRegistrationRequest, UserLoginRequest, UserOTPVerifyRequest
 from app.auth.token import create_access_token, get_sub_from_token
+from app.auth.email import OTP_EXPIRATION_TIME_MINUTES
 
 TOKEN_EXPIRATION_TIME_MINUTES = 10
 
@@ -126,6 +127,15 @@ def user_login(payload: UserLoginRequest, engine: Engine) -> Dict[str, Any]:
     """
     try:
         with engine.begin() as conn:
+            if payload.has_otp:
+                user = conn.execute(
+                    text("CALL replace_otp(:new_password_hash, :user_id_in)"),
+                    {
+                        "new_password_hash": payload.password_hash,
+                        "user_id_in": user.user_id
+                    },
+                ).first()
+
             user = conn.execute(
                 text("CALL login_user(:user_email_in)"),
                 {
@@ -133,10 +143,7 @@ def user_login(payload: UserLoginRequest, engine: Engine) -> Dict[str, Any]:
                 },
             ).first()
 
-            if user is None:
-                raise HTTPException(status_code=401, detail="No user exists with these credentials.")
-
-            if not argon2.verify(payload.password_hash, user.password_hash):
+            if user is None or not argon2.verify(payload.password_hash, user.password_hash):
                 raise HTTPException(status_code=401, detail="No user exists with these credentials.")
 
             token_input = {
@@ -310,4 +317,54 @@ def add_google_account(token: str, payload: GoogleUserRegisterRequest, engine: E
         raise HTTPException(
             status_code=500,
             detail=f"Database error while registering Google account: {exc}",
+        ) from exc
+    
+def user_has_otp(payload: UserOTPVerifyRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Verify user's OTP is a match.
+
+    Parameters
+    ----------
+    payload : UserOTPVerifyRequest
+        Request data containing user's OTP and email.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    dict
+        Confirmation payload containing the user's ID.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, user does not exist or database errors occur.
+    """
+    try:
+        with engine.begin() as conn:
+            # Verify user exists with this OTP, if this is the most recent OTP requested by this user, and if the OTP is expired
+            out = conn.execute(
+                text("CALL verify_otp(:otp_in, :otp_exp_time_in, :user_email_in)"),
+                {
+                    "otp_in": payload.otp,
+                    "otp_exp_time_in": OTP_EXPIRATION_TIME_MINUTES,
+                    "user_email_in": payload.user_email,
+                },
+            ).first()
+
+            if out is None:
+                raise HTTPException(status_code=401, detail="No user exists with these credentials.")
+            
+            # Result returns -1 on not OTP match, 0 on matched OTP but expired, and 1 on valid OTP
+            return {"result": out.result}
+
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="No user exists with these credentials.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while checking if user has OTP: {exc}",
         ) from exc

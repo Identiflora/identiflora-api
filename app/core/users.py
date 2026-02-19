@@ -1,11 +1,11 @@
+from __future__ import annotations
+
 import random
 import string
 
-from __future__ import annotations
-
 from typing import Any, Dict
 
-from fastapi import HTTPException
+from fastapi import HTTPException, BackgroundTasks
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -14,6 +14,7 @@ from passlib.hash import argon2
 
 from app.models.requests import UserPointAddRequest, UserPasswordResetRequest
 from app.auth.token import get_sub_from_token
+from app.auth.email import otpMailMessage
 
 def get_user_username(user_id: int, engine: Engine) -> Dict[str, Any]:
     """
@@ -198,7 +199,7 @@ def add_user_global_points(payload: UserPointAddRequest, engine: Engine) -> Dict
             detail=f"Database error while adding user points: {exc}",
         ) from exc
     
-def password_reset_mail_request(payload: UserPasswordResetRequest, engine: Engine) -> Dict[str, Any]:
+def password_reset_mail_request(payload: UserPasswordResetRequest, engine: Engine, backgroundTasks: BackgroundTasks) -> Dict[str, Any]:
     """
     Sends the user an email with temporary password to reset their account password.
 
@@ -210,6 +211,8 @@ def password_reset_mail_request(payload: UserPasswordResetRequest, engine: Engin
         Request data containing user email.
     engine : sqlalchemy.engine.Engine
         Database engine used to perform the query.
+    backgroundTasks: BackgroundTasks
+        Background task queue supplied by FastAPI initialization.
 
     Returns
     -------
@@ -238,9 +241,10 @@ def password_reset_mail_request(payload: UserPasswordResetRequest, engine: Engin
             
             # Generate OTP (One Time Password) of defined length
             values = string.ascii_letters + string.digits
-            hashed_otp = argon2.hash(''.join(random.choice(values) for _ in range(payload.otp_length)))
+            otp = ''.join(random.choice(values) for _ in range(payload.otp_length))
+            hashed_otp = argon2.hash(otp)
             
-            # Call to database procedure which handles checking for external users, setting user password to OTP, and all OTP security logs
+            # Call to database procedure which handles checking for external users, setting user password/flag to OTP, and all OTP security logs
             # Returns -1 on fail, 0 on external user found, and 1 on valid execution
             out = conn.execute(
                 text("CALL otp_requested(:user_email_in, :otp_in)"),
@@ -249,16 +253,16 @@ def password_reset_mail_request(payload: UserPasswordResetRequest, engine: Engin
                     "otp_in": hashed_otp
                 },
             ).first()
+            conn.commit()
 
             # If external user found then raise action denied exception
             if out.result == 0:
                 raise HTTPException(status_code=403, detail="Action denied. User with this email is considered an external account.")
 
-            # note: add OTP user flag and login count failed attempt to wipe OTP on database
+            # note: login count failed attempt to wipe OTP on database
 
-            # Email OTP to user email
-
-            return {"success": True}
+            # Email OTP to user email and return response
+            return otpMailMessage(payload.user_email, otp, backgroundTasks)
     
     except IntegrityError as exc:
         raise HTTPException(

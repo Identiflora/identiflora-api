@@ -45,6 +45,7 @@ class UserLoginRequest(BaseModel):
 
     user_email: str = Field(..., min_length=1, description="Email from user input")
     password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
+    has_otp: bool = Field(..., default=False, description="Is user trying to access account after creating OTP?")
 
 class User(BaseModel):
     """
@@ -77,3 +78,11 @@ class UserPasswordResetRequest(BaseModel):
 
     user_email: str = Field(..., min_length=1, description="Email from user input")
     otp_length: int = Field(..., gt=5, description="Length of generated one time password")
+
+class UserOTPVerifyRequest(BaseModel):
+    """
+    Request body for user password reset when user enters OTP. Ensures empty strings trigger invalid requests.
+    """
+
+    otp: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
+    user_email: str = Field(..., min_length=1, description="Email from user input")
