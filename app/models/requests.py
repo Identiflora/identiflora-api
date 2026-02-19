@@ -70,3 +70,10 @@ class GoogleUserRegisterRequest(BaseModel):
 
     username: str = Field(..., min_length=1, description="Optional username from user input")
     user_email: str = Field(..., min_length=1, description="Optional email from returned google authentication request")
+
+class UserPasswordResetRequest(BaseModel):
+    """
+    Request body for user google login account creation. Ensures empty strings trigger invalid requests.
+    """
+
+    user_email: str = Field(..., min_length=1, description="Email from user input")

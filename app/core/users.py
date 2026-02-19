@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from app.models.requests import UserPointAddRequest
+from app.models.requests import UserPointAddRequest, UserPasswordResetRequest
 from app.auth.token import get_user_id_from_token
 
 def get_user_username(user_id: int, engine: Engine) -> Dict[str, Any]:
@@ -191,4 +191,73 @@ def add_user_global_points(payload: UserPointAddRequest, engine: Engine) -> Dict
         raise HTTPException(
             status_code=500,
             detail=f"Database error while adding user points: {exc}",
+        ) from exc
+    
+def password_reset_mail_request(payload: UserPasswordResetRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Sends the user an email with temporary password to reset their account password.
+
+    Parameters
+    ----------
+    token: str
+        User d
+    payload : UserPasswordResetRequest
+        Request data containing user email.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    dict
+        Payload containing success of if email was queued to send.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, there are is no matching email or database errors occurred.
+    """
+    try:
+        with engine.connect() as conn:
+
+            # Probably needs more verifiers than just email. Perhaps security question and/or region answer?
+            # Attempt to log user in to get user details
+            user = conn.execute(
+                text("CALL login_user(:user_email_in)"),
+                {
+                    "user_email_in": payload.user_email
+                },
+            )
+
+            # Simple user doesn't exist catch
+            if user is None:
+                raise HTTPException(status_code=404, detail="User with this email could not be found.")
+            
+            # Check if user can login using external account, if so deny password reset
+            elif user.external_login:
+                raise HTTPException(status_code=403, detail="Action denied. User with this email is considered an external account.")
+            
+            # Generate OTP (One Time Password)
+
+            # Set OTP database flag and expiration timer (note: add OTP failed attempt count before OTP is wipped on database)
+
+            # Change user password to OTP
+
+            # Email OTP to user email
+
+            return {"success": True}
+    
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="No user with this email found.",
+        ) from exc
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=403, 
+            detail="Action denied. User with this email is considered an external account."
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while resetting user password: {exc}",
         ) from exc
