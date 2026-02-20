@@ -111,10 +111,10 @@ def google_auth(payload: UserOTPVerifyRequest):
 #     StaticFiles(directory=PLANT_IMG_LOC)
 # )
 
-if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host=HOST,
-        port=PORT,
-        reload=False,
-    )
+# if __name__ == "__main__":
+#     uvicorn.run(
+#         "main:app",
+#         host=HOST,
+#         port=PORT,
+#         reload=False,
+#     )
