@@ -78,6 +78,9 @@ class GoogleUserRegisterRequest(BaseModel):
 
     username: str = Field(..., min_length=1, description="Username from user input")
 
+class FriendAddRequest(BaseModel):
+    friend_user_id: int
+
 class UserPasswordResetRequest(BaseModel):
     """
     Request body for user password reset. Ensures empty strings trigger invalid requests.
