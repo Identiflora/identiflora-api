@@ -5,18 +5,19 @@ from dotenv import load_dotenv
 
 import uvicorn
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, BackgroundTasks, Depends
 from typing import Annotated
+
 
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest, UserPointAddRequest, GoogleUserRegisterRequest
+from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest, UserGlobalLeaderboardRequest, UserPointAddRequest, GoogleUserRegisterRequest, UserPasswordResetRequest, UserOTPVerifyRequest
 
-from app.auth.login_signup import auth_google_account, add_google_account, user_login, record_user_registration
+from app.auth.login_signup import auth_google_account, add_google_account, user_login, record_user_registration, user_has_otp
 from app.auth.token import get_current_user
 
 from app.core.db_connection import build_engine
-from app.core.users import get_count_user, get_points, get_user_username, add_user_global_points
+from app.core.users import get_global_leaderboard, get_count_user, add_user_global_points, password_reset_mail_request
 
 from app.db.incorrect_identification import record_incorrect_identification
 from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id
@@ -71,15 +72,10 @@ def login_user(payload: UserLoginRequest):
     """Route handler that records user registration data via helper logic."""
     return user_login(payload, engine)
 
-@app.get("/username/{user_id}")
-def get_username(user_id: int):
-    """Route handler that gets username data via helper logic."""
-    return get_user_username(user_id, engine)
-
-@app.get("/user-pts/{user_id}")
-def get_user_points(user_id: int):
-    """Route handler that gets username data via helper logic."""
-    return get_points(user_id, engine)
+@app.post("/global-leaderboard")
+def load_global_leaderboard(payload: UserGlobalLeaderboardRequest):
+    """Route handler that returns users on the global leaderboard via helper logic."""
+    return get_global_leaderboard(payload, engine)
 
 @app.post("/user-count")
 def get_user_count():
@@ -103,12 +99,21 @@ def google_auth(payload: GoogleUserRegisterRequest, auth: HTTPAuthorizationCrede
     token = auth.credentials
     return add_google_account(token, payload, engine)
 
+@app.post("/pwd-reset/otp-request")
+def google_auth(payload: UserPasswordResetRequest, backgroundTasks: BackgroundTasks):
+    """Route handler that sends the user a password reset one time password via helper logic."""
+    return password_reset_mail_request(payload, engine, backgroundTasks)
+
+@app.post("/pwd-reset/otp-check")
+def google_auth(payload: UserOTPVerifyRequest):
+    """Route handler that attempts to check and verify the user's one time password via helper logic."""
+    return user_has_otp(payload, engine)
+
 # directory containing plant images. Calls to api: http://localhost:8000/plant-images/API_test_img.png
 # app.mount(
 #     "/plant-images",
 #     StaticFiles(directory=PLANT_IMG_LOC)
 # )
-
 
 if __name__ == "__main__":
     uvicorn.run(

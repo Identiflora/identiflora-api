@@ -45,6 +45,7 @@ class UserLoginRequest(BaseModel):
 
     user_email: str = Field(..., min_length=1, description="Email from user input")
     password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
+    has_otp: bool = Field(..., description="Is user trying to access account after creating OTP?")
 
 class User(BaseModel):
     """
@@ -54,6 +55,13 @@ class User(BaseModel):
     username: str = Field(..., min_length=1, description="Username from user input")
     user_id: int = Field(..., gt=0, description="User id from database")
     password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
+
+class UserGlobalLeaderboardRequest(BaseModel):
+    """
+    Request body for reporting user login. Ensures empty strings trigger invalid requests.
+    """
+
+    leaderboard_size: int = Field(..., gt=0, description="Requested amount of users to display on the leaderboard")
 
 class UserPointAddRequest(BaseModel):
     """
@@ -69,3 +77,22 @@ class GoogleUserRegisterRequest(BaseModel):
     """
 
     username: str = Field(..., min_length=1, description="Username from user input")
+
+class FriendAddRequest(BaseModel):
+    friend_user_id: int
+
+class UserPasswordResetRequest(BaseModel):
+    """
+    Request body for user password reset. Ensures empty strings trigger invalid requests.
+    """
+
+    user_email: str = Field(..., min_length=1, description="Email from user input")
+    otp_length: int = Field(..., gt=5, description="Length of generated one time password")
+
+class UserOTPVerifyRequest(BaseModel):
+    """
+    Request body for user password reset when user enters OTP. Ensures empty strings trigger invalid requests.
+    """
+
+    otp: str = Field(..., min_length=1, description="Password from user input with expected OTP functionality")
+    user_email: str = Field(..., min_length=1, description="Email from user input")
