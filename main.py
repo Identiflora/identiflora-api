@@ -7,7 +7,7 @@ import uvicorn
 
 from fastapi import FastAPI, Depends
 from typing import Annotated
-, Depends
+
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest, UserPointAddRequest, GoogleUserRegisterRequest
