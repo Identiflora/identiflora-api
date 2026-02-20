@@ -90,6 +90,7 @@ def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -
         first_login_request = UserLoginRequest(
             user_email=payload.user_email,
             password_hash=payload.password_hash,
+            has_otp=False
         )
         return user_login(first_login_request, engine) 
         
