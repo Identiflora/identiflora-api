@@ -128,13 +128,13 @@ def user_login(payload: UserLoginRequest, engine: Engine) -> Dict[str, Any]:
     try:
         with engine.begin() as conn:
             if payload.has_otp:
-                user = conn.execute(
-                    text("CALL replace_otp(:new_password_hash, :user_id_in)"),
+                conn.execute(
+                    text("CALL replace_otp(:new_password_hash, :user_email_in)"),
                     {
-                        "new_password_hash": payload.password_hash,
-                        "user_id_in": user.user_id
+                        "new_password_hash": argon2.hash(payload.password_hash),
+                        "user_email_in": payload.user_email
                     },
-                ).first()
+                )
 
             user = conn.execute(
                 text("CALL login_user(:user_email_in)"),
@@ -143,7 +143,10 @@ def user_login(payload: UserLoginRequest, engine: Engine) -> Dict[str, Any]:
                 },
             ).first()
 
-            if user is None or not argon2.verify(payload.password_hash, user.password_hash):
+            if user is None:
+                raise HTTPException(status_code=401, detail="No user exists with these credentials.")
+            
+            if not argon2.verify(payload.password_hash, user.password_hash):
                 raise HTTPException(status_code=401, detail="No user exists with these credentials.")
 
             token_input = {
@@ -344,15 +347,14 @@ def user_has_otp(payload: UserOTPVerifyRequest, engine: Engine) -> Dict[str, Any
         with engine.begin() as conn:
             # Verify user exists with this OTP, if this is the most recent OTP requested by this user, and if the OTP is expired
             out = conn.execute(
-                text("CALL verify_otp(:otp_in, :otp_exp_time_in, :user_email_in)"),
+                text("CALL verify_otp(:otp_exp_time_in, :user_email_in)"),
                 {
-                    "otp_in": payload.otp,
                     "otp_exp_time_in": OTP_EXPIRATION_TIME_MINUTES,
                     "user_email_in": payload.user_email,
                 },
             ).first()
 
-            if out is None:
+            if out is None or out.otp is None or (out.result != -1 and not argon2.verify(payload.otp, out.otp)):
                 raise HTTPException(status_code=401, detail="No user exists with these credentials.")
             
             # Result returns -1 on not OTP match, 0 on matched OTP but expired, and 1 on valid OTP

@@ -3,7 +3,7 @@ from fastapi import BackgroundTasks
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from dotenv import load_dotenv
 
-OTP_EXPIRATION_TIME_MINUTES = 2
+OTP_EXPIRATION_TIME_MINUTES = 15
 
 def getMailConfig():
     load_dotenv()
@@ -38,8 +38,8 @@ def testEmail(email: str):
 def otpMailMessage(email: str, otp: str, backgroundTasks: BackgroundTasks):
     return mailMessage(
         email, 
-        "Password Reset for Identiflora", "Here is your one time password regarding your recent password reset:\n" 
-            + otp + "\n This password will expire in " + str(OTP_EXPIRATION_TIME_MINUTES) + " minutes.", 
+        "Password Reset for Identiflora", "Hi there!\n\nHere is your one time password regarding your recent password reset:\n\n" 
+            + otp + "\n\nThis password will expire in " + str(OTP_EXPIRATION_TIME_MINUTES) + " minutes.\n\nDo not reply to this email, but if this was not you, please send an email to identiflora.app@gmail.com.", 
         backgroundTasks)
 
 def mailMessage(email: str, subject: str, body: str, backgroundTasks: BackgroundTasks):
