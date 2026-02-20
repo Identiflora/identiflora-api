@@ -82,12 +82,6 @@ def get_plant_species_url(scientific_name: str, engine: Engine) -> str:
     ----------
     scientific_name : str
         Scientific (Latin) name of the plant to query.
-    host : str
-        Host serving the images.
-    port : int
-        Port for the image server.
-    img_path : str
-        Path prefix where images are served (e.g. /plant-images).
     engine : sqlalchemy.engine.Engine
         Database engine used to perform the query.
 
@@ -118,3 +112,42 @@ def get_plant_species_url(scientific_name: str, engine: Engine) -> str:
             status_code=500,
             detail=f"Database error while fetching plant species URL: {exc}",
         ) from exc
+    
+def get_species_id(scientific_name: str, engine: Engine):
+    """
+    Fetch the species id for a plant species identified by its scientific name.
+
+    Parameters
+    ----------
+    scientific_name : str
+        Scientific (Latin) name of the plant to query.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    int
+        The species_id of the plant requested 
+
+    Raises
+    ------
+    HTTPException
+        400 if the name is empty, 404 if not found, 500 for database errors.
+    """
+    if not scientific_name or not scientific_name.strip():
+        raise HTTPException(status_code=400, detail="Scientific name must be provided.")
+    
+    try:
+        with engine.connect() as conn:
+            payload = {"scientific_name": scientific_name}
+            result = conn.execute(text('CALL get_species_id(:scientific_name)'), payload).first()
+            if result is None:
+                raise HTTPException(status_code=404, detail="Plant species not found.")
+            return result.species_id
+        
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while fetching plant species ID: {exc}",
+        ) from exc
+    

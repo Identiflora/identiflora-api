@@ -7,7 +7,7 @@ import uvicorn
 
 from fastapi import FastAPI, Depends
 from typing import Annotated
-, Depends
+
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest, UserPointAddRequest, GoogleUserRegisterRequest
@@ -19,7 +19,7 @@ from app.core.db_connection import build_engine
 from app.core.users import get_count_user, get_points, get_user_username, add_user_global_points
 
 from app.db.incorrect_identification import record_incorrect_identification
-from app.db.plant_species import record_plant_species, get_plant_species_url
+from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -44,6 +44,11 @@ def add_incorrect_identification(payload: IncorrectIdentificationRequest, token_
     """Route handler that records an incorrect identification via helper logic."""
     logging.info(f"Incorrect identification recorded by user {token_claims.get('sub')}: {payload.identification_id}")
     return record_incorrect_identification(payload, engine)
+
+@app.get("/species-id/{scientific_name}")
+def species_id(scientific_name: str):
+    """Route handler that returns a species id via helper logic."""
+    return get_species_id(scientific_name, engine)
 
 @app.post("/plant-species")
 def add_plant_species(payload: PlantSpeciesRequest):
@@ -105,10 +110,10 @@ def google_auth(payload: GoogleUserRegisterRequest, auth: HTTPAuthorizationCrede
 # )
 
 
-# if __name__ == "__main__":
-#     uvicorn.run(
-#         "main:app",
-#         host=HOST,
-#         port=PORT,
-#         reload=False,
-#     )
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host=HOST,
+        port=PORT,
+        reload=False,
+    )
