@@ -56,6 +56,13 @@ class User(BaseModel):
     user_id: int = Field(..., gt=0, description="User id from database")
     password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
 
+class UserGlobalLeaderboardRequest(BaseModel):
+    """
+    Request body for reporting user login. Ensures empty strings trigger invalid requests.
+    """
+
+    leaderboard_size: int = Field(..., gt=0, description="Requested amount of users to display on the leaderboard")
+
 class UserPointAddRequest(BaseModel):
     """
     Request body for reporting user login. Ensures empty strings trigger invalid requests.

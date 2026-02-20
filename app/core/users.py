@@ -12,100 +12,58 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from passlib.hash import argon2
 
-from app.models.requests import UserPointAddRequest, UserPasswordResetRequest
+from app.models.requests import UserGlobalLeaderboardRequest, UserPointAddRequest, UserPasswordResetRequest
 from app.auth.token import get_sub_from_token
 from app.auth.email import otpMailMessage
 
-def get_user_username(user_id: int, engine: Engine) -> Dict[str, Any]:
+def get_global_leaderboard(payload: UserGlobalLeaderboardRequest, engine: Engine) -> Dict[str, Any]:
     """
-    Fetch user's username with their ID.
+    Retrieve amount of sorted users defined in payload.
 
     Parameters
     ----------
-    user_id : int
-        User's verification ID.
+    payload : UserGlobalLeaderboardRequest
+        Request data containing leaderboard size.
     engine : sqlalchemy.engine.Engine
         Database engine used to perform the query.
 
     Returns
     -------
     dict
-        Payload containing user's username.
+        Payload containing map of user ids, usernames, and points sorted by points.
 
     Raises
     ------
     HTTPException
-        If validation fails, ID is not valid or database errors occurred.
+        If validation fails, there are no users or database errors occurred.
     """
     try:
         with engine.connect() as conn:
-            user = conn.execute(
-                text("CALL get_user_leaderboard_info(:user_id_in)"),
+            leaderboard = conn.execute(
+                text("CALL get_global_leaderboard_info(:leaderboard_size)"),
                 {
-                    "user_id_in": user_id,
+                    "leaderboard_size": payload.leaderboard_size
                 },
-            ).first()
+            ).fetchall()
 
-            if user is None:
-                raise HTTPException(status_code=404, detail="User with this ID could not be found.")
+            if leaderboard is None:
+                raise HTTPException(status_code=404, detail="No users could be found.")
             
-            return {"username": user.username}
+            users = {}
+            for (id, username, points) in leaderboard:
+                users[id] = (username, points)
+            
+            return users
     
     except IntegrityError as exc:
         raise HTTPException(
             status_code=404,
-            detail="User not found.",
+            detail="No users found.",
         ) from exc
     except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Database error while fetching username: {exc}",
-        ) from exc
-
-def get_points(user_id: int, engine: Engine) -> Dict[str, Any]:
-    """
-    Fetch user's points with their ID.
-
-    Parameters
-    ----------
-    user_id : int
-        User's verification ID.
-    engine : sqlalchemy.engine.Engine
-        Database engine used to perform the query.
-
-    Returns
-    -------
-    dict
-        Payload containing user's points.
-
-    Raises
-    ------
-    HTTPException
-        If validation fails, ID is not valid or database errors occurred.
-    """
-    try:
-        with engine.connect() as conn:
-            user = conn.execute(
-                text("CALL get_user_leaderboard_info(:user_id_in)"),
-                {
-                    "user_id_in": user_id,
-                },
-            ).first()
-
-            if user is None:
-                raise HTTPException(status_code=404, detail="User with this ID could not be found.")
-            
-            return {"pts": user.global_points}
-    
-    except IntegrityError as exc:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found.",
-        ) from exc
-    except SQLAlchemyError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database error while fetching user points: {exc}",
+            detail=f"Database error while retrieving global leaderboard: {exc}",
         ) from exc
 
 def get_count_user(engine: Engine) -> Dict[str, Any]:
@@ -208,7 +166,7 @@ def password_reset_mail_request(payload: UserPasswordResetRequest, engine: Engin
     token: str
         User d
     payload : UserPasswordResetRequest
-        Request data containing user email.
+        Request data containing user email and length of generated OTP.
     engine : sqlalchemy.engine.Engine
         Database engine used to perform the query.
     backgroundTasks: BackgroundTasks
