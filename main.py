@@ -6,11 +6,14 @@ from dotenv import load_dotenv
 import uvicorn
 
 from fastapi import FastAPI, Depends
+from typing import Annotated
+, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest, UserPointAddRequest, GoogleUserRegisterRequest
 
 from app.auth.login_signup import auth_google_account, add_google_account, user_login, record_user_registration
+from app.auth.token import get_current_user
 
 from app.core.db_connection import build_engine
 from app.core.users import get_count_user, get_points, get_user_username, add_user_global_points
@@ -24,8 +27,7 @@ logging.basicConfig(level=logging.INFO)
 HOST = "localhost"
 PORT = 8000
 
-# PLANT_IMG_LOC = '/Users/jackson/Classes/plant-images'
-# PLANT_IMG_PATH = '/plant-images'
+
 
 load_dotenv()
 
@@ -38,8 +40,9 @@ app = FastAPI(
 engine = build_engine()
 
 @app.post("/incorrect-identifications")
-def add_incorrect_identification(payload: IncorrectIdentificationRequest):
+def add_incorrect_identification(payload: IncorrectIdentificationRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that records an incorrect identification via helper logic."""
+    logging.info(f"Incorrect identification recorded by user {token_claims.get('sub')}: {payload.identification_id}")
     return record_incorrect_identification(payload, engine)
 
 @app.post("/plant-species")
