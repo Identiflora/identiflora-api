@@ -17,7 +17,7 @@ from app.auth.login_signup import auth_google_account, add_google_account, user_
 from app.auth.token import get_current_user
 
 from app.core.db_connection import build_engine
-from app.core.users import get_global_leaderboard, get_count_user, add_user_global_points, password_reset_mail_request
+from app.core.users import get_global_leaderboard, get_count_user, add_user_global_points, password_reset_mail_request, get_user_points
 
 from app.db.incorrect_identification import record_incorrect_identification
 from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id
@@ -115,11 +115,11 @@ def google_auth(payload: UserOTPVerifyRequest):
     """Route handler that attempts to check and verify the user's one time password via helper logic."""
     return user_has_otp(payload, engine)
 
-# directory containing plant images. Calls to api: http://localhost:8000/plant-images/API_test_img.png
-# app.mount(
-#     "/plant-images",
-#     StaticFiles(directory=PLANT_IMG_LOC)
-# )
+@app.get("user-points/{username}")
+def get_user_points_router(username: str):
+    """Route handler that returns a users global points"""
+    return get_user_points(username, engine)
+
 
 if __name__ == "__main__":
     uvicorn.run(
