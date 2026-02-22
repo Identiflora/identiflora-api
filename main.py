@@ -40,6 +40,12 @@ app = FastAPI(
 
 engine = build_engine()
 
+@app.post("/authenticate-token")
+def authenticate_token_router(token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Authenticates user token and returns boolean"""
+    logging.info(f"User: {token_claims.get('sub')} authenticated")
+    return True
+
 @app.post("/incorrect-identifications")
 def add_incorrect_identification(payload: IncorrectIdentificationRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that records an incorrect identification via helper logic."""
