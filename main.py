@@ -82,18 +82,21 @@ def login_user(payload: UserLoginRequest):
     return user_login(payload, engine)
 
 @app.post("/global-leaderboard")
-def load_global_leaderboard(payload: UserGlobalLeaderboardRequest):
+def load_global_leaderboard(payload: UserGlobalLeaderboardRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that returns users on the global leaderboard via helper logic."""
+    logging.info(f"User {token_claims.get('sub')} global-leaderboard request")
     return get_global_leaderboard(payload, engine)
 
 @app.post("/user-count")
-def get_user_count():
+def get_user_count(token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that gets user count via helper logic."""
+    logging.info(f"User {token_claims.get('sub')} user count request")
     return get_count_user(engine)
 
 @app.post("/add-global-user-pts")
-def get_user_count(payload: UserPointAddRequest):
+def get_user_count(payload: UserPointAddRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that adds global points to user via helper logic."""
+    logging.info(f"User {token_claims.get('sub')} add global points request")
     return add_user_global_points(payload, engine)
 
 @app.post("/google/auth")
