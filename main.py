@@ -124,14 +124,6 @@ def get_user_points_router(username: str):
     return get_user_points(username, engine)
 
 
-if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host=HOST,
-        port=PORT,
-        reload=False,
-    )
-
  @app.get("/friends")
 def get_friends_router(token_claims: Annotated[dict, Depends(get_current_user)]):
     user_id = int(token_claims.get("sub"))
@@ -141,3 +133,12 @@ def get_friends_router(token_claims: Annotated[dict, Depends(get_current_user)])
 def add_friend_router(payload: FriendAddRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     user_id = int(token_claims.get("sub"))
     return add_friend(payload=payload, user_id=user_id, engine=engine)
+
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host=HOST,
+        port=PORT,
+        reload=False,
+    )
