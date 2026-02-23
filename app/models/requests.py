@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional
+from pydantic import BaseModel
 
 class IncorrectIdentificationRequest(BaseModel):
     """
@@ -96,3 +97,6 @@ class UserOTPVerifyRequest(BaseModel):
 
     otp: str = Field(..., min_length=1, description="Password from user input with expected OTP functionality")
     user_email: str = Field(..., min_length=1, description="Email from user input")
+
+class FriendAddRequest(BaseModel):
+    friend_username: str
