@@ -22,6 +22,9 @@ from app.core.users import get_global_leaderboard, get_count_user, add_user_glob
 from app.db.incorrect_identification import record_incorrect_identification
 from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id
 
+from app.db.friends import get_friends, add_friend
+from app.models.requests import FriendAddRequest
+
 import logging
 logging.basicConfig(level=logging.INFO)
 
@@ -128,3 +131,13 @@ if __name__ == "__main__":
         port=PORT,
         reload=False,
     )
+
+ @app.get("/friends")
+def get_friends_router(token_claims: Annotated[dict, Depends(get_current_user)]):
+    user_id = int(token_claims.get("sub"))
+    return get_friends(user_id=user_id, engine=engine)
+
+@app.post("/friends/add")
+def add_friend_router(payload: FriendAddRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+    user_id = int(token_claims.get("sub"))
+    return add_friend(payload=payload, user_id=user_id, engine=engine)
