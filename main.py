@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 import uvicorn
 
-from fastapi import FastAPI, BackgroundTasks, Depends
+from fastapi import FastAPI, BackgroundTasks, Depends, Request
 from typing import Annotated
 
 
@@ -26,6 +26,11 @@ from app.db.plant_species import record_plant_species, get_plant_species_url, ge
 from app.models.requests import FriendAddRequest
 
 import logging
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
 logging.basicConfig(level=logging.INFO)
 
 HOST = "localhost"
@@ -35,66 +40,78 @@ PORT = 8000
 
 load_dotenv()
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(
     title="Identiflora Database API",
     version="0.1.0",
     description="Minimal API for interacting with the Identiflora MySQL database.",
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 engine = build_engine()
 
 @app.post("/authenticate-token")
-def authenticate_token_router(token_claims: Annotated[dict, Depends(get_current_user)]):
+@limiter.limit("20/minute")
+async def authenticate_token_router(token_claims: Annotated[dict, Depends(get_current_user)], request: Request):
     """Authenticates user token and returns boolean"""
     logging.info(f"User: {token_claims.get('sub')} authenticated")
     return True
 
 @app.post("/incorrect-identifications")
-def add_incorrect_identification(payload: IncorrectIdentificationRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+@limiter.limit("20/minute")
+async def add_incorrect_identification(payload: IncorrectIdentificationRequest, token_claims: Annotated[dict, Depends(get_current_user)], request: Request):
     """Route handler that records an incorrect identification via helper logic."""
     logging.info(f"Incorrect identification recorded by user {token_claims.get('sub')}: {payload.identification_id}")
     return record_incorrect_identification(payload, engine)
 
 @app.get("/species-id/{scientific_name}")
-def species_id(scientific_name: str):
+@limiter.limit("20/minute")
+async def species_id(scientific_name: str, request: Request):
     """Route handler that returns a species id via helper logic."""
     return get_species_id(scientific_name, engine)
 
 @app.post("/plant-species")
-def add_plant_species(payload: PlantSpeciesRequest):
+@limiter.limit("20/minute")
+async def add_plant_species(payload: PlantSpeciesRequest, request: Request):
     """Route handler that records a new plant species via helper logic."""
     logging.info("HIT /plant-species: %s", payload.scientific_name)
     return record_plant_species(payload, engine)
 
 @app.get("/plant-species-url/{scientific_name}")
-def get_plant_species_url_router(scientific_name: str): 
+@limiter.limit("20/minute")
+async def get_plant_species_url_router(scientific_name: str, request: Request): 
     """Route handler that returns a plant species img url using query parameters."""
     return get_plant_species_url(scientific_name, engine)
 
 @app.post("/user/register")
-def add_registered_user(payload: UserRegistrationRequest):
+@limiter.limit("20/minute")
+async def add_registered_user(payload: UserRegistrationRequest, request: Request):
     """Route handler that records user registration data via helper logic."""
     return record_user_registration(payload, engine)
 
 @app.post("/user/login")
-def login_user(payload: UserLoginRequest):
+@limiter.limit("20/minute")
+async def login_user(payload: UserLoginRequest, request: Request):
     """Route handler that records user registration data via helper logic."""
     return user_login(payload, engine)
 
 @app.post("/global-leaderboard")
-def load_global_leaderboard(payload: UserGlobalLeaderboardRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+@limiter.limit("20/minute")
+async def load_global_leaderboard(payload: UserGlobalLeaderboardRequest, request: Request):
     """Route handler that returns users on the global leaderboard via helper logic."""
-    logging.info(f"User {token_claims.get('sub')} global-leaderboard request")
     return get_global_leaderboard(payload, engine)
 
 @app.post("/user-count")
-def get_user_count(token_claims: Annotated[dict, Depends(get_current_user)]):
+@limiter.limit("20/minute")
+async def get_user_count(token_claims: Annotated[dict, Depends(get_current_user)], request: Request):
     """Route handler that gets user count via helper logic."""
     logging.info(f"User {token_claims.get('sub')} user count request")
     return get_count_user(engine)
 
 @app.post("/add-global-user-pts")
-def get_user_count(payload: UserPointAddRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+@limiter.limit("20/minute")
+async def get_user_count(payload: UserPointAddRequest, token_claims: Annotated[dict, Depends(get_current_user)], request: Request):
     """Route handler that adds global points to user via helper logic."""
     logging.info(f"User {token_claims.get('sub')} add global points request")
     return add_user_global_points(payload, engine)
@@ -122,7 +139,8 @@ def google_auth(payload: UserOTPVerifyRequest):
     return user_has_otp(payload, engine)
 
 @app.get("user-points/{username}")
-def get_user_points_router(username: str):
+@limiter.limit("20/minute")
+async def get_user_points_router(username: str, request: Request):
     """Route handler that returns a users global points"""
     return get_user_points(username, engine)
 
