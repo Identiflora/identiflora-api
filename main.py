@@ -30,6 +30,7 @@ import logging
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 logging.basicConfig(level=logging.INFO)
 
@@ -40,7 +41,7 @@ PORT = 8000
 
 load_dotenv()
 
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=get_remote_address, default_limits=["1/minute"])
 app = FastAPI(
     title="Identiflora Database API",
     version="0.1.0",
@@ -48,19 +49,19 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 engine = build_engine()
 
 @app.post("/authenticate-token")
-@limiter.limit("5/minute")
-async def authenticate_token_router(token_claims: Annotated[dict, Depends(get_current_user)], request: Request):
+# @limiter.limit("5/minute")
+async def authenticate_token_router(token_claims: Annotated[dict, Depends(get_current_user)]):
     """Authenticates user token and returns boolean"""
     logging.info(f"User: {token_claims.get('sub')} authenticated")
     return True
 
 @app.post("/incorrect-identifications")
-@limiter.limit("5/minute")
-async def add_incorrect_identification(payload: IncorrectIdentificationRequest, token_claims: Annotated[dict, Depends(get_current_user)], request: Request):
+async def add_incorrect_identification(payload: IncorrectIdentificationRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that records an incorrect identification via helper logic."""
     logging.info(f"Incorrect identification recorded by user {token_claims.get('sub')}: {payload.identification_id}")
     return record_incorrect_identification(payload, engine)
