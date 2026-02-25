@@ -41,7 +41,7 @@ PORT = 8000
 
 load_dotenv()
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["30/minute"])
+limiter = Limiter(key_func=get_remote_address, default_limits=["50/minute"])
 app = FastAPI(
     title="Identiflora Database API",
     version="0.1.0",
@@ -131,10 +131,11 @@ async def google_auth(payload: UserOTPVerifyRequest):
     """Route handler that attempts to check and verify the user's one time password via helper logic."""
     return user_has_otp(payload, engine)
 
-@app.get("user-points/{username}")
-async def get_user_points_router(username: str):
+@app.post("/user-points")
+async def get_user_points_router(token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that returns a users global points"""
-    return get_user_points(username, engine)
+    user_id = token_claims.get('sub')
+    return get_user_points(user_id, engine)
 
 # @app.get("/friends")
 # def get_friends_router(token_claims: Annotated[dict, Depends(get_current_user)]):

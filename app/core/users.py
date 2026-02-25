@@ -238,34 +238,29 @@ def password_reset_mail_request(payload: UserPasswordResetRequest, engine: Engin
             detail=f"Database error while resetting user password: {exc}",
         ) from exc
 
-def get_user_points(username: str, engine: Engine):
+def get_user_points(user_id: int, engine: Engine):
     """
-    Fetch the global points for a user identified by their username.
+    Fetch the global points for a user identified by their user_id in their auth token.
 
     Parameters
     ----------
-    username : str
-        Username of the user.
     engine : sqlalchemy.engine.Engine
         Database engine used to perform the query.
 
     Returns
     -------
     int
-        The global points associated with the username in the database
+        The global points associated with the user_id in the database
 
     Raises
     ------
     HTTPException
-        400 if the username is empty, 404 if not found, 500 for database errors.
+        404 if not found, 500 for database errors.
     """
-    if not username or not username.strip():
-        raise HTTPException(status_code=400, detail="Username must be provided.")
-    
     try:
         with engine.connect() as conn:
-            payload = {"username": username}
-            result = conn.execute(text('CALL get_user_points(:username)'), payload).first()
+            payload = {"user_id": user_id}
+            result = conn.execute(text('CALL get_user_points(:user_id)'), payload).first()
             if result is None:
                 raise HTTPException(status_code=404, detail="Users points not found.")
             return result.global_points
