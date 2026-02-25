@@ -59,7 +59,8 @@ async def authenticate_token_router(token_claims: Annotated[dict, Depends(get_cu
     return True
 
 @app.post("/incorrect-identifications")
-async def add_incorrect_identification(payload: IncorrectIdentificationRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+@limiter.limit("5/minute")
+async def add_incorrect_identification(payload: IncorrectIdentificationRequest, token_claims: Annotated[dict, Depends(get_current_user)], request: Request):
     """Route handler that records an incorrect identification via helper logic."""
     logging.info(f"Incorrect identification recorded by user {token_claims.get('sub')}: {payload.identification_id}")
     return record_incorrect_identification(payload, engine)
