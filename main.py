@@ -46,8 +46,8 @@ app = FastAPI(
     version="0.1.0",
     description="Minimal API for interacting with the Identiflora MySQL database.",
 )
-# app.state.limiter = limiter
-# app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 engine = build_engine()
 
