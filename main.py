@@ -116,18 +116,18 @@ async def google_auth(auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())
     return await auth_google_account(token, engine)
 
 @app.post("/google/register")
-def google_auth(payload: GoogleUserRegisterRequest, auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())):
+async def google_auth(payload: GoogleUserRegisterRequest, auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())):
     """Route handler that attempts to record user Google data via helper logic."""
     token = auth.credentials
     return add_google_account(token, payload, engine)
 
 @app.post("/pwd-reset/otp-request")
-def google_auth(payload: UserPasswordResetRequest, backgroundTasks: BackgroundTasks):
+async def google_auth(payload: UserPasswordResetRequest, backgroundTasks: BackgroundTasks):
     """Route handler that sends the user a password reset one time password via helper logic."""
     return password_reset_mail_request(payload, engine, backgroundTasks)
 
 @app.post("/pwd-reset/otp-check")
-def google_auth(payload: UserOTPVerifyRequest):
+async def google_auth(payload: UserOTPVerifyRequest):
     """Route handler that attempts to check and verify the user's one time password via helper logic."""
     return user_has_otp(payload, engine)
 
