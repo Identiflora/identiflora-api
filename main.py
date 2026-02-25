@@ -41,7 +41,7 @@ PORT = 8000
 
 load_dotenv()
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["5/minute"])
+limiter = Limiter(key_func=get_remote_address, default_limits=["30/minute"])
 app = FastAPI(
     title="Identiflora Database API",
     version="0.1.0",

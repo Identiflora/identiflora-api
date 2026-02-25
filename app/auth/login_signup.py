@@ -23,7 +23,7 @@ from app.models.requests import GoogleUserRegisterRequest, UserRegistrationReque
 from app.auth.token import create_access_token, get_sub_from_token
 from app.auth.email import OTP_EXPIRATION_TIME_MINUTES
 
-TOKEN_EXPIRATION_TIME_MINUTES = 10
+TOKEN_EXPIRATION_TIME_MINUTES = 1000000
 
 def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -> Dict[str, Any]:
     """
