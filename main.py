@@ -52,66 +52,57 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 engine = build_engine()
 
 @app.post("/authenticate-token")
-@limiter.limit("20/minute")
+@limiter.limit("5/minute")
 async def authenticate_token_router(token_claims: Annotated[dict, Depends(get_current_user)], request: Request):
     """Authenticates user token and returns boolean"""
     logging.info(f"User: {token_claims.get('sub')} authenticated")
     return True
 
 @app.post("/incorrect-identifications")
-@limiter.limit("20/minute")
-async def add_incorrect_identification(payload: IncorrectIdentificationRequest, token_claims: Annotated[dict, Depends(get_current_user)], request: Request):
+async def add_incorrect_identification(payload: IncorrectIdentificationRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that records an incorrect identification via helper logic."""
     logging.info(f"Incorrect identification recorded by user {token_claims.get('sub')}: {payload.identification_id}")
     return record_incorrect_identification(payload, engine)
 
 @app.get("/species-id/{scientific_name}")
-@limiter.limit("20/minute")
-async def species_id(scientific_name: str, request: Request):
+async def species_id(scientific_name: str):
     """Route handler that returns a species id via helper logic."""
     return get_species_id(scientific_name, engine)
 
 @app.post("/plant-species")
-@limiter.limit("20/minute")
-async def add_plant_species(payload: PlantSpeciesRequest, request: Request):
+async def add_plant_species(payload: PlantSpeciesRequest):
     """Route handler that records a new plant species via helper logic."""
     logging.info("HIT /plant-species: %s", payload.scientific_name)
     return record_plant_species(payload, engine)
 
 @app.get("/plant-species-url/{scientific_name}")
-@limiter.limit("20/minute")
-async def get_plant_species_url_router(scientific_name: str, request: Request): 
+async def get_plant_species_url_router(scientific_name: str): 
     """Route handler that returns a plant species img url using query parameters."""
     return get_plant_species_url(scientific_name, engine)
 
 @app.post("/user/register")
-@limiter.limit("20/minute")
-async def add_registered_user(payload: UserRegistrationRequest, request: Request):
+async def add_registered_user(payload: UserRegistrationRequest):
     """Route handler that records user registration data via helper logic."""
     return record_user_registration(payload, engine)
 
 @app.post("/user/login")
-@limiter.limit("20/minute")
-async def login_user(payload: UserLoginRequest, request: Request):
+async def login_user(payload: UserLoginRequest):
     """Route handler that records user registration data via helper logic."""
     return user_login(payload, engine)
 
 @app.post("/global-leaderboard")
-@limiter.limit("20/minute")
-async def load_global_leaderboard(payload: UserGlobalLeaderboardRequest, request: Request):
+async def load_global_leaderboard(payload: UserGlobalLeaderboardRequest):
     """Route handler that returns users on the global leaderboard via helper logic."""
     return get_global_leaderboard(payload, engine)
 
 @app.post("/user-count")
-@limiter.limit("20/minute")
-async def get_user_count(token_claims: Annotated[dict, Depends(get_current_user)], request: Request):
+async def get_user_count(token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that gets user count via helper logic."""
     logging.info(f"User {token_claims.get('sub')} user count request")
     return get_count_user(engine)
 
 @app.post("/add-global-user-pts")
-@limiter.limit("20/minute")
-async def get_user_count(payload: UserPointAddRequest, token_claims: Annotated[dict, Depends(get_current_user)], request: Request):
+async def get_user_count(payload: UserPointAddRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that adds global points to user via helper logic."""
     logging.info(f"User {token_claims.get('sub')} add global points request")
     return add_user_global_points(payload, engine)
@@ -139,8 +130,7 @@ def google_auth(payload: UserOTPVerifyRequest):
     return user_has_otp(payload, engine)
 
 @app.get("user-points/{username}")
-@limiter.limit("20/minute")
-async def get_user_points_router(username: str, request: Request):
+async def get_user_points_router(username: str):
     """Route handler that returns a users global points"""
     return get_user_points(username, engine)
 
@@ -161,4 +151,6 @@ if __name__ == "__main__":
         host=HOST,
         port=PORT,
         reload=False,
+        proxy_headers=True,
+        forwarded_allow_ips="*"
     )
