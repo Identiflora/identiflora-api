@@ -40,20 +40,20 @@ PORT = 8000
 
 load_dotenv()
 
-limiter = Limiter(key_func=get_remote_address)
+# limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(
     title="Identiflora Database API",
     version="0.1.0",
     description="Minimal API for interacting with the Identiflora MySQL database.",
 )
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# app.state.limiter = limiter
+# app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 engine = build_engine()
 
 @app.post("/authenticate-token")
-@limiter.limit("5/minute")
-async def authenticate_token_router(token_claims: Annotated[dict, Depends(get_current_user)], request: Request):
+# @limiter.limit("5/minute")
+async def authenticate_token_router(token_claims: Annotated[dict, Depends(get_current_user)]):
     """Authenticates user token and returns boolean"""
     logging.info(f"User: {token_claims.get('sub')} authenticated")
     return True
