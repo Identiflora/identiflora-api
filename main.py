@@ -52,8 +52,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 engine = build_engine()
 
 @app.post("/authenticate-token")
-# @limiter.limit("5/minute")
-async def authenticate_token_router(token_claims: Annotated[dict, Depends(get_current_user)]):
+@limiter.limit("5/minute")
+async def authenticate_token_router(token_claims: Annotated[dict, Depends(get_current_user)], request: Request):
     """Authenticates user token and returns boolean"""
     logging.info(f"User: {token_claims.get('sub')} authenticated")
     return True
