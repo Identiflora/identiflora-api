@@ -17,7 +17,7 @@ from app.auth.login_signup import auth_google_account, add_google_account, user_
 from app.auth.token import get_current_user
 
 from app.core.db_connection import build_engine
-from app.core.users import get_global_leaderboard, get_count_user, add_user_global_points, password_reset_mail_request, get_user_points
+from app.core.users import get_global_leaderboard, get_count_user, add_user_global_points, password_reset_mail_request, get_user_points, get_username
 
 from app.db.incorrect_identification import record_incorrect_identification
 from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id
@@ -146,6 +146,13 @@ async def get_user_points_router(token_claims: Annotated[dict, Depends(get_curre
 # def add_friend_router(payload: FriendAddRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
 #     user_id = int(token_claims.get("sub"))
 #     return add_friend(payload=payload, user_id=user_id, engine=engine)
+
+@app.post('/username')
+async def get_username_router(token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Route handler that returns a users username"""
+    user_id = token_claims.get('sub')
+    return get_username(user_id, engine)
+
 
 
 if __name__ == "__main__":
