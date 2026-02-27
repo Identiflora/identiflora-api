@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from passlib.hash import argon2
 
 from app.models.requests import UserGlobalLeaderboardRequest, UserPointAddRequest, UserPasswordResetRequest
+from app.models.requests import UserEmailUpdateRequest, UserPasswordUpdateRequest
 from app.auth.token import get_sub_from_token
 from app.auth.email import otpMailMessage
 
@@ -303,3 +304,57 @@ def get_username(user_id: int, engine: Engine) -> str:
             status_code=500,
             detail=f"Database error while fetching username: {exc}",
         ) from exc
+
+def update_user_email(user_id: int, payload: UserEmailUpdateRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Update a user's email address in the database.
+    """
+    try:
+        with engine.begin() as conn:
+            # Check if the new email is already in use
+            email_existing = conn.execute(
+                text("CALL check_user_email_exists(:email)"),
+                {"email": payload.new_email},
+            ).first()
+
+            if email_existing is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This email has already been recorded."
+                )
+
+            # Update the email
+            conn.execute(
+                text("CALL update_user_email(:user_id_in, :new_email_in)"),
+                {
+                    "user_id_in": user_id,
+                    "new_email_in": payload.new_email
+                },
+            )
+            return {"success": True, "message": "Email updated successfully"}
+            
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="Email already registered.") from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while updating email: {exc}") from exc
+
+
+def update_user_password(user_id: int, payload: UserPasswordUpdateRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Update a user's password in the database.
+    """
+    try:
+        password_hash_2 = argon2.hash(payload.new_password_hash)
+        
+        with engine.begin() as conn:
+            conn.execute(
+                text("CALL update_user_password(:user_id_in, :new_password_in)"),
+                {
+                    "user_id_in": user_id,
+                    "new_password_in": password_hash_2
+                },
+            )
+            return {"success": True, "message": "Password updated successfully"}
+            
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while updating password: {exc}") from exc
