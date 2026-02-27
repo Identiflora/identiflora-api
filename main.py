@@ -23,7 +23,7 @@ from app.db.incorrect_identification import record_incorrect_identification
 from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id
 
 # from app.db.friends import get_friends, add_friend
-from app.models.requests import FriendAddRequest
+from app.models.requests import FriendAddRequest, UserEmailUpdateRequest, UserPasswordUpdateRequest
 
 import logging
 
@@ -153,7 +153,19 @@ async def get_username_router(token_claims: Annotated[dict, Depends(get_current_
     user_id = token_claims.get('sub')
     return get_username(user_id, engine)
 
+@app.post("/user/update-email")
+async def update_email_router(payload: UserEmailUpdateRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Route handler for updating an authenticated user's email."""
+    user_id = int(token_claims.get('sub'))
+    logging.info(f"User {user_id} requested email update")
+    return update_user_email(user_id, payload, engine)
 
+@app.post("/user/update-password")
+async def update_password_router(payload: UserPasswordUpdateRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Route handler for updating an authenticated user's password."""
+    user_id = int(token_claims.get('sub'))
+    logging.info(f"User {user_id} requested password update")
+    return update_user_password(user_id, payload, engine)
 
 if __name__ == "__main__":
     uvicorn.run(
