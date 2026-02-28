@@ -157,7 +157,6 @@ async def get_username_router(token_claims: Annotated[dict, Depends(get_current_
 async def set_user_badge_router(payload: UserBadgeSetRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that sets a user's selected badge."""
     user_id = token_claims.get('sub')
-    print(payload.badge_file_path)
     badge_file_path = payload.badge_file_path
     return set_user_badge(user_id, badge_file_path, engine)
 
