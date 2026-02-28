@@ -71,6 +71,13 @@ class UserPointAddRequest(BaseModel):
     user_token: str = Field(..., min_length=1, description="Token from user's device")
     add_points: int = Field(..., gt=0, description="Points to add to user account")
 
+class UserBadgeSetRequest(BaseModel):
+    """
+    Request body for badge set request. Ensures strings that are less than 4 characters trigger invalid requests.
+    """
+
+    badge_file_path: str = Field(..., description="File path to badge asset in Flutter app")
+
 class GoogleUserRegisterRequest(BaseModel):
     """
     Request body for user google login account creation. Ensures empty strings trigger invalid requests.
