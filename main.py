@@ -104,10 +104,12 @@ async def get_user_count(token_claims: Annotated[dict, Depends(get_current_user)
     return get_count_user(engine)
 
 @app.post("/add-global-user-pts")
-async def get_user_count(payload: UserPointAddRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+async def add_user_global_points_router(payload: UserPointAddRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that adds global points to user via helper logic."""
-    logging.info(f"User {token_claims.get('sub')} add global points request")
-    return add_user_global_points(payload, engine)
+    user_id = token_claims.get('sub')
+    logging.info(f"User {user_id} add global points request")
+    add_points = payload.add_points
+    return add_user_global_points(user_id, add_points, engine)
 
 @app.post("/google/auth")
 async def google_auth(auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())):

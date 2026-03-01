@@ -107,7 +107,7 @@ def get_count_user(engine: Engine) -> Dict[str, Any]:
             detail=f"Database error while fetching user count: {exc}",
         ) from exc
 
-def add_user_global_points(payload: UserPointAddRequest, engine: Engine) -> Dict[str, Any]:
+def add_user_global_points(user_id: int, add_points: int, engine: Engine) -> bool:
     """
     Add points to user account in database.
 
@@ -129,14 +129,12 @@ def add_user_global_points(payload: UserPointAddRequest, engine: Engine) -> Dict
         If validation fails, there are no users or database errors occurred.
     """
     try:
-        user_id = int(get_sub_from_token(payload.user_token))
-
         with engine.connect() as conn:
             user = conn.execute(
                 text("CALL add_user_global_points(:user_id_in, :add_points_in)"),
                 {
                     "user_id_in": user_id,
-                    "add_points_in": payload.add_points
+                    "add_points_in": add_points
                 },
             )
             conn.commit()
@@ -144,7 +142,7 @@ def add_user_global_points(payload: UserPointAddRequest, engine: Engine) -> Dict
             if user is None:
                 raise HTTPException(status_code=404, detail="User with this ID could not be found.")
             
-            return {"success": True}
+            return True
     
     except IntegrityError as exc:
         raise HTTPException(
