@@ -50,8 +50,8 @@ def get_global_leaderboard(payload: UserGlobalLeaderboardRequest, engine: Engine
                 raise HTTPException(status_code=404, detail="No users could be found.")
             
             users = {}
-            for (id, username, points) in leaderboard:
-                users[id] = (username, points)
+            for (id, username, points, badge) in leaderboard:
+                users[id] = (username, points, badge)
             
             return users
     
