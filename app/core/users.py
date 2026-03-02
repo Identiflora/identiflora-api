@@ -378,3 +378,41 @@ def get_user_badge(user_id: int, engine: Engine) -> str:
             status_code=500,
             detail=f"Database error while getting selected badge: {exc}",
         ) from exc
+    
+def get_user_region(user_id: int, engine: Engine) -> str:
+    """
+    Get the region of the user that is identified by the user_id in their auth token.
+
+    Parameters
+    ----------
+    user_id : int
+        Database id for user
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    String
+        User region
+
+    Raises
+    ------
+    HTTPException
+        404 if not found, 500 for database errors.
+    """
+    try:
+        with engine.connect() as conn:
+            payload = {"user_id_in": user_id}
+            result = conn.execute(text('CALL get_user_region(:user_id_in)'), payload).first()
+
+            if result is None:
+                raise HTTPException(status_code=404, detail="User region not found.")
+            
+            return result.selected_badge
+        
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while getting user's region: {exc}",
+        ) from exc
+

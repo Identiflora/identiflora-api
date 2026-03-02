@@ -36,6 +36,7 @@ class UserRegistrationRequest(BaseModel):
 
     user_email: str = Field(..., min_length=1, description="Email from user input")
     username: str = Field(..., min_length=1, description="Username from user input")
+    region: str = Field(..., min_length=1, description="Region from user input")
     password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
 
 class UserLoginRequest(BaseModel):

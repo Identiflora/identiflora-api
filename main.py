@@ -17,7 +17,7 @@ from app.auth.login_signup import auth_google_account, add_google_account, user_
 from app.auth.token import get_current_user
 
 from app.core.db_connection import build_engine
-from app.core.users import get_global_leaderboard, get_count_user, add_user_global_points, get_user_badge, password_reset_mail_request, get_user_points, get_username, set_user_badge
+from app.core.users import get_global_leaderboard, get_count_user, add_user_global_points, get_user_badge, password_reset_mail_request, get_user_points, get_username, set_user_badge, get_user_region
 
 from app.db.incorrect_identification import record_incorrect_identification
 from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id
@@ -167,6 +167,12 @@ async def get_user_badge_router(token_claims: Annotated[dict, Depends(get_curren
     """Route handler that returns a Flutter file path to a user's badge."""
     user_id = token_claims.get('sub')
     return get_user_badge(user_id, engine)
+
+@app.post('/get-user-region')
+async def get_user_region_router(token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Route handler that returns a user region."""
+    user_id = token_claims.get('sub')
+    return get_user_region(user_id, engine)
 
 if __name__ == "__main__":
     uvicorn.run(
