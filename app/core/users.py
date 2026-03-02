@@ -12,17 +12,17 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from passlib.hash import argon2
 
-from app.models.requests import UserGlobalLeaderboardRequest, UserPointAddRequest, UserPasswordResetRequest
+from app.models.requests import UserLeaderboardRequest, UserPointAddRequest, UserPasswordResetRequest
 from app.auth.token import get_sub_from_token
 from app.auth.email import otpMailMessage
 
-def get_global_leaderboard(payload: UserGlobalLeaderboardRequest, engine: Engine) -> Dict[str, Any]:
+def get_global_leaderboard(payload: UserLeaderboardRequest, engine: Engine) -> Dict[str, Any]:
     """
     Retrieve amount of sorted users defined in payload.
 
     Parameters
     ----------
-    payload : UserGlobalLeaderboardRequest
+    payload : UserLeaderboardRequest
         Request data containing leaderboard size.
     engine : sqlalchemy.engine.Engine
         Database engine used to perform the query.
@@ -30,7 +30,7 @@ def get_global_leaderboard(payload: UserGlobalLeaderboardRequest, engine: Engine
     Returns
     -------
     dict
-        Payload containing map of user ids, usernames, and points sorted by points.
+        Payload containing map of user ids, usernames, points, and badges sorted by points.
 
     Raises
     ------
@@ -64,6 +64,59 @@ def get_global_leaderboard(payload: UserGlobalLeaderboardRequest, engine: Engine
         raise HTTPException(
             status_code=500,
             detail=f"Database error while retrieving global leaderboard: {exc}",
+        ) from exc
+    
+def get_regional_leaderboard(user_id: int, payload: UserLeaderboardRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Retrieve amount of sorted users dependent on user region defined in payload.
+
+    Parameters
+    ----------
+    user_id : int
+        Database id for user
+    payload : UserLeaderboardRequest
+        Request data containing leaderboard size.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    dict
+        Payload containing map of user ids, usernames, points, and badges sorted by points and filtered by user's region.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, there are no users or database errors occurred.
+    """
+    try:
+        with engine.connect() as conn:
+            leaderboard = conn.execute(
+                text("CALL get_regional_leaderboard_info(:user_id_in, :leaderboard_size)"),
+                {
+                    "user_id_in": user_id,
+                    "leaderboard_size": payload.leaderboard_size
+                },
+            ).fetchall()
+
+            if leaderboard is None:
+                raise HTTPException(status_code=404, detail="No users could be found for this region.")
+            
+            users = {}
+            for (id, username, points, badge) in leaderboard:
+                users[id] = (username, points, badge)
+            
+            return users
+    
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="No users found for this region.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while retrieving regional leaderboard: {exc}",
         ) from exc
 
 def get_count_user(engine: Engine) -> Dict[str, Any]:

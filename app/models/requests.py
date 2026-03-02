@@ -57,7 +57,7 @@ class User(BaseModel):
     user_id: int = Field(..., gt=0, description="User id from database")
     password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
 
-class UserGlobalLeaderboardRequest(BaseModel):
+class UserLeaderboardRequest(BaseModel):
     """
     Request body for reporting user login. Ensures empty strings trigger invalid requests.
     """
