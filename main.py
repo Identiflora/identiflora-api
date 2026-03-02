@@ -34,7 +34,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 logging.basicConfig(level=logging.INFO)
 
-HOST = "0.0.0.0"
+HOST = "localhost"
 PORT = 8000
 
 
