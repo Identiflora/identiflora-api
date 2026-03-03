@@ -461,7 +461,7 @@ def get_user_region(user_id: int, engine: Engine) -> str:
             if result is None:
                 raise HTTPException(status_code=404, detail="User region not found.")
             
-            return result.selected_badge
+            return result.region
         
     except SQLAlchemyError as exc:
         raise HTTPException(
