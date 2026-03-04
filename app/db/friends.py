@@ -19,7 +19,7 @@ def get_friends(user_id: int, engine: Engine) -> List[Dict[str, Any]]:
                 {"user_id_in": user_id},
             ).all()
 
-            return [{"id": r.id, "username": r.username} for r in rows]
+            return [{"id": r.user_id, "username": r.username} for r in rows]
 
     except SQLAlchemyError as exc:
         raise HTTPException(
