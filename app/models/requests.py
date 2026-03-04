@@ -37,6 +37,7 @@ class UserRegistrationRequest(BaseModel):
 
     user_email: str = Field(..., min_length=1, description="Email from user input")
     username: str = Field(..., min_length=1, description="Username from user input")
+    region: str = Field(..., min_length=1, description="Region from user input")
     password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
 
 class UserLoginRequest(BaseModel):
@@ -57,7 +58,7 @@ class User(BaseModel):
     user_id: int = Field(..., gt=0, description="User id from database")
     password_hash: str = Field(..., min_length=1, description="Password hash created by Flutter with user input")
 
-class UserGlobalLeaderboardRequest(BaseModel):
+class UserLeaderboardRequest(BaseModel):
     """
     Request body for reporting user login. Ensures empty strings trigger invalid requests.
     """
@@ -69,8 +70,14 @@ class UserPointAddRequest(BaseModel):
     Request body for reporting user login. Ensures empty strings trigger invalid requests.
     """
 
-    user_token: str = Field(..., min_length=1, description="Token from user's device")
     add_points: int = Field(..., gt=0, description="Points to add to user account")
+
+class UserBadgeSetRequest(BaseModel):
+    """
+    Request body for badge set request. Ensures strings that are less than 4 characters trigger invalid requests.
+    """
+
+    badge_file_path: str = Field(..., description="File path to badge asset in Flutter app")
 
 class GoogleUserRegisterRequest(BaseModel):
     """

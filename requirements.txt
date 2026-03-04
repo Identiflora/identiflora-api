@@ -11,3 +11,4 @@ python-dotenv
 argon2-cffi
 google-auth
 fastapi-mail
+slowapi

@@ -23,7 +23,7 @@ from app.models.requests import GoogleUserRegisterRequest, UserRegistrationReque
 from app.auth.token import create_access_token, get_sub_from_token
 from app.auth.email import OTP_EXPIRATION_TIME_MINUTES
 
-TOKEN_EXPIRATION_TIME_MINUTES = 10
+TOKEN_EXPIRATION_TIME_MINUTES = 1000000
 
 def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -> Dict[str, Any]:
     """
@@ -32,7 +32,7 @@ def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -
     Parameters
     ----------
     payload : UserRegistrationRequest
-        Request data containing username, email, and password hash.
+        Request data containing username, email, region, and password hash.
     engine : sqlalchemy.engine.Engine
         Database engine used to perform the query.
 
@@ -76,12 +76,14 @@ def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -
             # This is done after user existing checks to avoid unnecessary runtime
             password_hash_2 = argon2.hash(payload.password_hash)
 
+            print(payload.region)
             # Write: insert the user account information with id and timestamp. This will also get the newly created user's ID.
             user = conn.execute(
-                text("CALL add_user(:user_email_in, :username_in, :user_password_in)"),
+                text("CALL add_user(:user_email_in, :username_in, :region_in, :user_password_in)"),
                 {
                     "user_email_in": payload.user_email,
                     "username_in": payload.username,
+                    "region_in": payload.region,
                     "user_password_in": password_hash_2
                 },
             ).first()

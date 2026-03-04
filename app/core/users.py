@@ -12,17 +12,17 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from passlib.hash import argon2
 
-from app.models.requests import UserGlobalLeaderboardRequest, UserPointAddRequest, UserPasswordResetRequest
+from app.models.requests import UserLeaderboardRequest, UserPointAddRequest, UserPasswordResetRequest
 from app.auth.token import get_sub_from_token
 from app.auth.email import otpMailMessage
 
-def get_global_leaderboard(payload: UserGlobalLeaderboardRequest, engine: Engine) -> Dict[str, Any]:
+def get_global_leaderboard(payload: UserLeaderboardRequest, engine: Engine) -> Dict[str, Any]:
     """
     Retrieve amount of sorted users defined in payload.
 
     Parameters
     ----------
-    payload : UserGlobalLeaderboardRequest
+    payload : UserLeaderboardRequest
         Request data containing leaderboard size.
     engine : sqlalchemy.engine.Engine
         Database engine used to perform the query.
@@ -30,7 +30,7 @@ def get_global_leaderboard(payload: UserGlobalLeaderboardRequest, engine: Engine
     Returns
     -------
     dict
-        Payload containing map of user ids, usernames, and points sorted by points.
+        Payload containing map of user ids, usernames, points, and badges sorted by points.
 
     Raises
     ------
@@ -50,8 +50,8 @@ def get_global_leaderboard(payload: UserGlobalLeaderboardRequest, engine: Engine
                 raise HTTPException(status_code=404, detail="No users could be found.")
             
             users = {}
-            for (id, username, points) in leaderboard:
-                users[id] = (username, points)
+            for (id, username, points, badge) in leaderboard:
+                users[id] = (username, points, badge)
             
             return users
     
@@ -64,6 +64,59 @@ def get_global_leaderboard(payload: UserGlobalLeaderboardRequest, engine: Engine
         raise HTTPException(
             status_code=500,
             detail=f"Database error while retrieving global leaderboard: {exc}",
+        ) from exc
+    
+def get_regional_leaderboard(user_id: int, payload: UserLeaderboardRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Retrieve amount of sorted users dependent on user region defined in payload.
+
+    Parameters
+    ----------
+    user_id : int
+        Database id for user
+    payload : UserLeaderboardRequest
+        Request data containing leaderboard size.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    dict
+        Payload containing map of user ids, usernames, points, and badges sorted by points and filtered by user's region.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, there are no users or database errors occurred.
+    """
+    try:
+        with engine.connect() as conn:
+            leaderboard = conn.execute(
+                text("CALL get_regional_leaderboard_info(:user_id_in, :leaderboard_size)"),
+                {
+                    "user_id_in": user_id,
+                    "leaderboard_size": payload.leaderboard_size
+                },
+            ).fetchall()
+
+            if leaderboard is None:
+                raise HTTPException(status_code=404, detail="No users could be found for this region.")
+            
+            users = {}
+            for (id, username, points, badge) in leaderboard:
+                users[id] = (username, points, badge)
+            
+            return users
+    
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="No users found for this region.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while retrieving regional leaderboard: {exc}",
         ) from exc
 
 def get_count_user(engine: Engine) -> Dict[str, Any]:
@@ -107,7 +160,7 @@ def get_count_user(engine: Engine) -> Dict[str, Any]:
             detail=f"Database error while fetching user count: {exc}",
         ) from exc
 
-def add_user_global_points(payload: UserPointAddRequest, engine: Engine) -> Dict[str, Any]:
+def add_user_global_points(user_id: int, add_points: int, engine: Engine) -> bool:
     """
     Add points to user account in database.
 
@@ -129,14 +182,12 @@ def add_user_global_points(payload: UserPointAddRequest, engine: Engine) -> Dict
         If validation fails, there are no users or database errors occurred.
     """
     try:
-        user_id = int(get_sub_from_token(payload.user_token))
-
         with engine.connect() as conn:
             user = conn.execute(
                 text("CALL add_user_global_points(:user_id_in, :add_points_in)"),
                 {
                     "user_id_in": user_id,
-                    "add_points_in": payload.add_points
+                    "add_points_in": add_points
                 },
             )
             conn.commit()
@@ -144,7 +195,7 @@ def add_user_global_points(payload: UserPointAddRequest, engine: Engine) -> Dict
             if user is None:
                 raise HTTPException(status_code=404, detail="User with this ID could not be found.")
             
-            return {"success": True}
+            return True
     
     except IntegrityError as exc:
         raise HTTPException(
@@ -238,34 +289,29 @@ def password_reset_mail_request(payload: UserPasswordResetRequest, engine: Engin
             detail=f"Database error while resetting user password: {exc}",
         ) from exc
 
-def get_user_points(username: str, engine: Engine):
+def get_user_points(user_id: int, engine: Engine) -> int:
     """
-    Fetch the global points for a user identified by their username.
+    Fetch the global points for a user identified by their user_id in their auth token.
 
     Parameters
     ----------
-    username : str
-        Username of the user.
     engine : sqlalchemy.engine.Engine
         Database engine used to perform the query.
 
     Returns
     -------
     int
-        The global points associated with the username in the database
+        The global points associated with the user_id in the database
 
     Raises
     ------
     HTTPException
-        400 if the username is empty, 404 if not found, 500 for database errors.
+        404 if not found, 500 for database errors.
     """
-    if not username or not username.strip():
-        raise HTTPException(status_code=400, detail="Username must be provided.")
-    
     try:
         with engine.connect() as conn:
-            payload = {"username": username}
-            result = conn.execute(text('CALL get_user_points(:username)'), payload).first()
+            payload = {"user_id": user_id}
+            result = conn.execute(text('CALL get_user_points(:user_id)'), payload).first()
             if result is None:
                 raise HTTPException(status_code=404, detail="Users points not found.")
             return result.global_points
@@ -275,3 +321,151 @@ def get_user_points(username: str, engine: Engine):
             status_code=500,
             detail=f"Database error while fetching users points: {exc}",
         ) from exc
+
+def get_username(user_id: int, engine: Engine) -> str:
+    """
+    Fetch the username for a user identified by their user_id in their auth token.
+
+    Parameters
+    ----------
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    String
+        The username associated with the user id input
+
+    Raises
+    ------
+    HTTPException
+        404 if not found, 500 for database errors.
+    """
+    try:
+        with engine.connect() as conn:
+            payload = {"user_id": user_id}
+            result = conn.execute(text('CALL get_username(:user_id)'), payload).first()
+            if result is None:
+                raise HTTPException(status_code=404, detail="Username not found.")
+            return result.username
+        
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while fetching username: {exc}",
+        ) from exc
+    
+def set_user_badge(user_id: int, badge_path: str, engine: Engine) -> bool:
+    """
+    Set the Flutter asset file path to a user's selected badge that is identified by the user_id in their auth token.
+
+    Parameters
+    ----------
+    user_id : int
+        Database id for user
+    badge_path : str
+        File path to badge asset in Fluutter
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    bool
+        Success or fail when setting user badge
+
+    Raises
+    ------
+    HTTPException
+        404 if not found, 500 for database errors.
+    """
+    try:
+        with engine.connect() as conn:
+            payload = {"user_id_in": user_id, "badge_file_path": badge_path}
+            result = conn.execute(text('CALL set_user_badge(:user_id_in, :badge_file_path)'), payload)
+            conn.commit()
+
+            if result is None:
+                raise HTTPException(status_code=404, detail="User not found when setting badge.")
+            
+            return True
+        
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while setting selected badge: {exc}",
+        ) from exc
+    
+def get_user_badge(user_id: int, engine: Engine) -> str:
+    """
+    Get the Flutter asset file path associated to a user's selected badge that is identified by the user_id in their auth token.
+
+    Parameters
+    ----------
+    user_id : int
+        Database id for user
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    String
+        Selected badge Flutter file path
+
+    Raises
+    ------
+    HTTPException
+        404 if not found, 500 for database errors.
+    """
+    try:
+        with engine.connect() as conn:
+            payload = {"user_id_in": user_id}
+            result = conn.execute(text('CALL get_user_badge(:user_id_in)'), payload).first()
+
+            if result is None:
+                raise HTTPException(status_code=404, detail="User not found when getting badge.")
+            
+            return result.selected_badge
+        
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while getting selected badge: {exc}",
+        ) from exc
+    
+def get_user_region(user_id: int, engine: Engine) -> str:
+    """
+    Get the region of the user that is identified by the user_id in their auth token.
+
+    Parameters
+    ----------
+    user_id : int
+        Database id for user
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    String
+        User region
+
+    Raises
+    ------
+    HTTPException
+        404 if not found, 500 for database errors.
+    """
+    try:
+        with engine.connect() as conn:
+            payload = {"user_id_in": user_id}
+            result = conn.execute(text('CALL get_user_region(:user_id_in)'), payload).first()
+
+            if result is None:
+                raise HTTPException(status_code=404, detail="User region not found.")
+            
+            return result.region
+        
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while getting user's region: {exc}",
+        ) from exc
+
