@@ -17,7 +17,7 @@ from app.auth.login_signup import auth_google_account, add_google_account, user_
 from app.auth.token import get_current_user
 
 from app.core.db_connection import build_engine
-from app.core.users import get_global_leaderboard, get_count_user, add_user_global_points, get_regional_leaderboard, get_user_badge, password_reset_mail_request, get_user_points, get_username, set_user_badge, get_user_region
+from app.core.users import get_friends_leaderboard, get_global_leaderboard, get_count_user, add_user_global_points, get_regional_leaderboard, get_user_badge, password_reset_mail_request, get_user_points, get_username, set_user_badge, get_user_region
 
 from app.db.incorrect_identification import record_incorrect_identification
 from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id
@@ -34,7 +34,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 logging.basicConfig(level=logging.INFO)
 
-HOST = "localhost"
+HOST = "0.0.0.0"
 PORT = 8000
 
 
@@ -102,6 +102,12 @@ async def load_regional_leaderboard(payload: UserLeaderboardRequest, token_claim
     """Route handler that returns users on the global leaderboard via helper logic."""
     user_id = token_claims.get('sub')
     return get_regional_leaderboard(user_id, payload, engine)
+
+@app.post("/friends-leaderboard")
+async def load_friends_leaderboard(payload: UserLeaderboardRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Route handler that returns users on the friends leaderboard via helper logic."""
+    user_id = token_claims.get('sub')
+    return get_friends_leaderboard(user_id, payload, engine)
 
 @app.post("/user-count")
 async def get_user_count(token_claims: Annotated[dict, Depends(get_current_user)]):

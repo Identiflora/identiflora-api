@@ -118,6 +118,59 @@ def get_regional_leaderboard(user_id: int, payload: UserLeaderboardRequest, engi
             status_code=500,
             detail=f"Database error while retrieving regional leaderboard: {exc}",
         ) from exc
+    
+def get_friends_leaderboard(user_id: int, payload: UserLeaderboardRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Retrieve amount of sorted users dependent on user region defined in payload.
+
+    Parameters
+    ----------
+    user_id : int
+        Database id for user
+    payload : UserLeaderboardRequest
+        Request data containing leaderboard size.
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    dict
+        Payload containing map of user ids, usernames, points, and badges sorted by points and filtered by user's friends.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, there are no users or database errors occurred.
+    """
+    try:
+        with engine.connect() as conn:
+            leaderboard = conn.execute(
+                text("CALL get_friends_leaderboard_info(:user_id_in, :leaderboard_size)"),
+                {
+                    "user_id_in": user_id,
+                    "leaderboard_size": payload.leaderboard_size
+                },
+            ).fetchall()
+
+            if leaderboard is None:
+                raise HTTPException(status_code=404, detail="No user could be found for this id in friends leaderboard.")
+            
+            users = {}
+            for (id, username, points, badge) in leaderboard:
+                users[id] = (username, points, badge)
+            
+            return users
+    
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="No user could be found for this id in friends leaderboar.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while retrieving friends leaderboard: {exc}",
+        ) from exc
 
 def get_count_user(engine: Engine) -> Dict[str, Any]:
     """
