@@ -85,6 +85,7 @@ class GoogleUserRegisterRequest(BaseModel):
     """
 
     username: str = Field(..., min_length=1, description="Username from user input")
+    region: str = Field(..., min_length=1, description="Region from user input")
 
 class FriendAddRequest(BaseModel):
     friend_user_id: int

@@ -293,13 +293,14 @@ def add_google_account(token: str, payload: GoogleUserRegisterRequest, engine: E
                     detail="This username has already been recorded.",
                 )
 
-            # No email duplicate guard is needed as email would be blank string if email already existed.
+            # No email duplicate guard is needed as email would already been counted as existing in auth_google_account.
             # Therefore, execute adding the user.
             user = conn.execute(
-                text("CALL add_external_user(:user_email_in, :username_in)"), # Add this function to database
+                text("CALL add_external_user(:user_email_in, :username_in, :region_in)"), # Add this function to database
                 {
                     "user_email_in": user_email,
-                    "username_in": payload.username
+                    "username_in": payload.username,
+                    "region_in": payload.region
                 },
             ).first()
 

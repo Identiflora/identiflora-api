@@ -34,10 +34,8 @@ from slowapi.middleware import SlowAPIMiddleware
 
 logging.basicConfig(level=logging.INFO)
 
-HOST = "0.0.0.0"
+HOST = "localhost"
 PORT = 8000
-
-
 
 load_dotenv()
 
@@ -130,7 +128,7 @@ async def google_auth(auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())
     return await auth_google_account(token, engine)
 
 @app.post("/google/register")
-async def google_auth(payload: GoogleUserRegisterRequest, auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())):
+async def google_register(payload: GoogleUserRegisterRequest, auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())):
     """Route handler that attempts to record user Google data via helper logic."""
     token = auth.credentials
     return add_google_account(token, payload, engine)
