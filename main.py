@@ -17,7 +17,7 @@ from app.auth.login_signup import auth_google_account, add_google_account, user_
 from app.auth.token import get_current_user
 
 from app.core.db_connection import build_engine
-from app.core.users import get_friends_leaderboard, get_global_leaderboard, get_count_user, add_user_global_points, get_regional_leaderboard, get_user_badge, password_reset_mail_request, get_user_points, get_username, set_user_badge, get_user_region, update_user_email, update_user_password
+from app.core.users import delete_user_account, get_friends_leaderboard, get_global_leaderboard, get_count_user, add_user_global_points, get_regional_leaderboard, get_user_badge, password_reset_mail_request, get_user_points, get_username, set_user_badge, get_user_region, update_user_email, update_user_password
 
 from app.db.incorrect_identification import record_incorrect_identification
 from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id
@@ -180,8 +180,15 @@ async def update_password_router(payload: UserPasswordUpdateRequest, token_claim
     """Route handler for updating an authenticated user's password."""
     user_id = int(token_claims.get('sub'))
     logging.info(f"User {user_id} requested password update")
-    return update_user_password(user_id, payload, engine)@app.post("/set-user-badge")
+    return update_user_password(user_id, payload, engine)
 
+@app.delete("/user/account")
+async def delete_account_router(token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Route to permanently delete the authenticated user's account."""
+    user_id = int(token_claims.get('sub'))
+    return delete_user_account(user_id, engine)
+
+@app.post("/set-user-badge")
 async def set_user_badge_router(payload: UserBadgeSetRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that sets a user's selected badge."""
     user_id = token_claims.get('sub')

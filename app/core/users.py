@@ -577,3 +577,12 @@ def update_user_password(user_id: int, payload: UserPasswordUpdateRequest, engin
             
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while updating password: {exc}") from exc
+
+def delete_user_account(user_id: int, engine: Engine) -> Dict[str, Any]:
+    """Permanently deletes a user account and associated data."""
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("CALL delete_user(:user_id_in)"), {"user_id_in": user_id})
+            return {"success": True, "message": "Account deleted successfully"}
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Error during account deletion: {exc}")
