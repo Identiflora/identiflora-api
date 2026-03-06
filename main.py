@@ -25,6 +25,9 @@ from app.db.plant_species import record_plant_species, get_plant_species_url, ge
 from app.db.friends import get_friends, add_friend
 from app.models.requests import FriendAddRequest
 
+from app.models.requests import PlantSubmissionRequest
+from app.db.submissions import record_plant_submission, get_submission_history
+
 import logging
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -183,6 +186,19 @@ async def get_user_region_router(token_claims: Annotated[dict, Depends(get_curre
     """Route handler that returns a user region."""
     user_id = token_claims.get('sub')
     return get_user_region(user_id, engine)
+
+@app.post("/user/submissions")
+async def add_plant_submission(payload: PlantSubmissionRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+    user_id = int(token_claims.get('sub'))
+    logging.info(f"User {user_id} saving plant submission: {payload.user_guess}") 
+    return record_plant_submission(payload, user_id, engine)
+
+@app.get("/user/history")
+async def get_user_history(token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Route handler that returns a user's plant identification history."""
+    user_id = int(token_claims.get('sub'))
+    logging.info(f"User {user_id} requested submission history")
+    return get_submission_history(user_id, engine)
 
 if __name__ == "__main__":
     uvicorn.run(

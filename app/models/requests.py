@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 
 class IncorrectIdentificationRequest(BaseModel):
@@ -108,3 +108,10 @@ class UserOTPVerifyRequest(BaseModel):
 
 class FriendAddRequest(BaseModel):
     friend_username: str
+
+class PlantSubmissionRequest(BaseModel):
+    prediction_ids: List[int] =Field(..., description="Plant ID's of top 5 options")
+    user_guess: str = Field(..., description="The species the user officially accepted")
+    latitude: float = Field(..., description="Latitude of the submission")
+    longitude: float = Field(..., description="Longitude of the submission")
+    img_url: Optional[str] = Field("", description="URL of the uploaded image if applicable")
