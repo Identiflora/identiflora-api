@@ -56,8 +56,8 @@ def record_plant_submission(payload: PlantSubmissionRequest, user_id: int, engin
 
 def get_submission_history(user_id: int, engine) -> list:
     """
-    Fetches a user's past plant submissions by joining the submission,
-    result, option, and species tables together.
+    Fetches all of a user's past plant submissions by joining the submission
+    directly to the top AI prediction
     """
     try:
         with engine.connect() as conn:
@@ -72,8 +72,8 @@ def get_submission_history(user_id: int, engine) -> list:
                     p.scientific_name,
                     p.img_url AS species_img
                 FROM identification_submission s
-                JOIN identification_result r ON s.identification_id = r.identification_id
-                JOIN identification_option o ON r.option_id = o.option_id
+                -- Join directly to the AI's #1 choice for every submission
+                JOIN identification_option o ON s.identification_id = o.identification_id AND o.option_rank = 1
                 JOIN plant_species p ON o.species_id = p.species_id
                 WHERE s.user_id = :uid
                 ORDER BY s.time_submitted DESC;
