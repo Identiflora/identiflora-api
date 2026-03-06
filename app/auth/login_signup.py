@@ -32,7 +32,7 @@ def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -
     Parameters
     ----------
     payload : UserRegistrationRequest
-        Request data containing username, email, and password hash.
+        Request data containing username, email, region, and password hash.
     engine : sqlalchemy.engine.Engine
         Database engine used to perform the query.
 
@@ -76,12 +76,14 @@ def record_user_registration(payload: UserRegistrationRequest, engine: Engine) -
             # This is done after user existing checks to avoid unnecessary runtime
             password_hash_2 = argon2.hash(payload.password_hash)
 
+            print(payload.region)
             # Write: insert the user account information with id and timestamp. This will also get the newly created user's ID.
             user = conn.execute(
-                text("CALL add_user(:user_email_in, :username_in, :user_password_in)"),
+                text("CALL add_user(:user_email_in, :username_in, :region_in, :user_password_in)"),
                 {
                     "user_email_in": payload.user_email,
                     "username_in": payload.username,
+                    "region_in": payload.region,
                     "user_password_in": password_hash_2
                 },
             ).first()
@@ -291,13 +293,14 @@ def add_google_account(token: str, payload: GoogleUserRegisterRequest, engine: E
                     detail="This username has already been recorded.",
                 )
 
-            # No email duplicate guard is needed as email would be blank string if email already existed.
+            # No email duplicate guard is needed as email would already been counted as existing in auth_google_account.
             # Therefore, execute adding the user.
             user = conn.execute(
-                text("CALL add_external_user(:user_email_in, :username_in)"), # Add this function to database
+                text("CALL add_external_user(:user_email_in, :username_in, :region_in)"), # Add this function to database
                 {
                     "user_email_in": user_email,
-                    "username_in": payload.username
+                    "username_in": payload.username,
+                    "region_in": payload.region
                 },
             ).first()
 

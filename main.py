@@ -11,19 +11,22 @@ from typing import Annotated
 
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserRegistrationRequest, UserLoginRequest, UserGlobalLeaderboardRequest, UserPointAddRequest, GoogleUserRegisterRequest, UserPasswordResetRequest, UserOTPVerifyRequest
+from app.models.requests import IncorrectIdentificationRequest, PlantSpeciesRequest, UserBadgeSetRequest, UserRegistrationRequest, UserLoginRequest, UserLeaderboardRequest, UserPointAddRequest, GoogleUserRegisterRequest, UserPasswordResetRequest, UserOTPVerifyRequest
 
 from app.auth.login_signup import auth_google_account, add_google_account, user_login, record_user_registration, user_has_otp
 from app.auth.token import get_current_user
 
 from app.core.db_connection import build_engine
-from app.core.users import get_global_leaderboard, get_count_user, add_user_global_points, password_reset_mail_request, get_user_points, get_username
+from app.core.users import get_friends_leaderboard, get_global_leaderboard, get_count_user, add_user_global_points, get_regional_leaderboard, get_user_badge, password_reset_mail_request, get_user_points, get_username, set_user_badge, get_user_region, update_user_email, update_user_password
 
 from app.db.incorrect_identification import record_incorrect_identification
 from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id
 
-# from app.db.friends import get_friends, add_friend
+from app.db.friends import get_friends, add_friend
 from app.models.requests import FriendAddRequest, UserEmailUpdateRequest, UserPasswordUpdateRequest
+
+from app.models.requests import PlantSubmissionRequest
+from app.db.submissions import record_plant_submission, get_submission_history
 
 import logging
 
@@ -36,8 +39,6 @@ logging.basicConfig(level=logging.INFO)
 
 HOST = "localhost"
 PORT = 8000
-
-
 
 load_dotenv()
 
@@ -93,9 +94,21 @@ async def login_user(payload: UserLoginRequest):
     return user_login(payload, engine)
 
 @app.post("/global-leaderboard")
-async def load_global_leaderboard(payload: UserGlobalLeaderboardRequest):
+async def load_global_leaderboard(payload: UserLeaderboardRequest):
     """Route handler that returns users on the global leaderboard via helper logic."""
     return get_global_leaderboard(payload, engine)
+
+@app.post("/regional-leaderboard")
+async def load_regional_leaderboard(payload: UserLeaderboardRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Route handler that returns users on the global leaderboard via helper logic."""
+    user_id = token_claims.get('sub')
+    return get_regional_leaderboard(user_id, payload, engine)
+
+@app.post("/friends-leaderboard")
+async def load_friends_leaderboard(payload: UserLeaderboardRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Route handler that returns users on the friends leaderboard via helper logic."""
+    user_id = token_claims.get('sub')
+    return get_friends_leaderboard(user_id, payload, engine)
 
 @app.post("/user-count")
 async def get_user_count(token_claims: Annotated[dict, Depends(get_current_user)]):
@@ -104,10 +117,12 @@ async def get_user_count(token_claims: Annotated[dict, Depends(get_current_user)
     return get_count_user(engine)
 
 @app.post("/add-global-user-pts")
-async def get_user_count(payload: UserPointAddRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+async def add_user_global_points_router(payload: UserPointAddRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that adds global points to user via helper logic."""
-    logging.info(f"User {token_claims.get('sub')} add global points request")
-    return add_user_global_points(payload, engine)
+    user_id = token_claims.get('sub')
+    logging.info(f"User {user_id} add global points request")
+    add_points = payload.add_points
+    return add_user_global_points(user_id, add_points, engine)
 
 @app.post("/google/auth")
 async def google_auth(auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())):
@@ -116,7 +131,7 @@ async def google_auth(auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())
     return await auth_google_account(token, engine)
 
 @app.post("/google/register")
-async def google_auth(payload: GoogleUserRegisterRequest, auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())):
+async def google_register(payload: GoogleUserRegisterRequest, auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())):
     """Route handler that attempts to record user Google data via helper logic."""
     token = auth.credentials
     return add_google_account(token, payload, engine)
@@ -137,15 +152,15 @@ async def get_user_points_router(token_claims: Annotated[dict, Depends(get_curre
     user_id = token_claims.get('sub')
     return get_user_points(user_id, engine)
 
-# @app.get("/friends")
-# def get_friends_router(token_claims: Annotated[dict, Depends(get_current_user)]):
-#     user_id = int(token_claims.get("sub"))
-#     return get_friends(user_id=user_id, engine=engine)
+@app.get("/friends")
+def get_friends_router(token_claims: Annotated[dict, Depends(get_current_user)]):
+    user_id = int(token_claims.get("sub"))
+    return get_friends(user_id=user_id, engine=engine)
 
-# @app.post("/friends/add")
-# def add_friend_router(payload: FriendAddRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
-#     user_id = int(token_claims.get("sub"))
-#     return add_friend(payload=payload, user_id=user_id, engine=engine)
+@app.post("/friends/add")
+def add_friend_router(payload: FriendAddRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+    user_id = int(token_claims.get("sub"))
+    return add_friend(payload=payload, user_id=user_id, engine=engine)
 
 @app.post('/username')
 async def get_username_router(token_claims: Annotated[dict, Depends(get_current_user)]):
@@ -165,7 +180,38 @@ async def update_password_router(payload: UserPasswordUpdateRequest, token_claim
     """Route handler for updating an authenticated user's password."""
     user_id = int(token_claims.get('sub'))
     logging.info(f"User {user_id} requested password update")
-    return update_user_password(user_id, payload, engine)
+    return update_user_password(user_id, payload, engine)@app.post("/set-user-badge")
+
+async def set_user_badge_router(payload: UserBadgeSetRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Route handler that sets a user's selected badge."""
+    user_id = token_claims.get('sub')
+    badge_file_path = payload.badge_file_path
+    return set_user_badge(user_id, badge_file_path, engine)
+
+@app.post('/get-user-badge')
+async def get_user_badge_router(token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Route handler that returns a Flutter file path to a user's badge."""
+    user_id = token_claims.get('sub')
+    return get_user_badge(user_id, engine)
+
+@app.post('/get-user-region')
+async def get_user_region_router(token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Route handler that returns a user region."""
+    user_id = token_claims.get('sub')
+    return get_user_region(user_id, engine)
+
+@app.post("/user/submissions")
+async def add_plant_submission(payload: PlantSubmissionRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+    user_id = int(token_claims.get('sub'))
+    logging.info(f"User {user_id} saving plant submission: {payload.user_guess}") 
+    return record_plant_submission(payload, user_id, engine)
+
+@app.get("/user/history")
+async def get_user_history(token_claims: Annotated[dict, Depends(get_current_user)]):
+    """Route handler that returns a user's plant identification history."""
+    user_id = int(token_claims.get('sub'))
+    logging.info(f"User {user_id} requested submission history")
+    return get_submission_history(user_id, engine)
 
 if __name__ == "__main__":
     uvicorn.run(
