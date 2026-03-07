@@ -105,6 +105,17 @@ class UserOTPVerifyRequest(BaseModel):
 
     otp: str = Field(..., min_length=1, description="Password from user input with expected OTP functionality")
     user_email: str = Field(..., min_length=1, description="Email from user input")
+class UserEmailUpdateRequest(BaseModel):
+    """
+    Request body for updating a user's email.
+    """
+    new_email: str = Field(..., min_length=1, description="New email from user input")
+
+class UserPasswordUpdateRequest(BaseModel):
+    """
+    Request body for updating a user's password.
+    """
+    new_password_hash: str = Field(..., min_length=1, description="New password hash from user input")
 
 class FriendAddRequest(BaseModel):
     friend_username: str
