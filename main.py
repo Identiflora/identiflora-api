@@ -73,6 +73,7 @@ async def species_id(scientific_name: str):
     return get_species_id(scientific_name, engine)
 
 @app.post("/plant-species")
+@limiter.exempt
 async def add_plant_species(payload: PlantSpeciesRequest):
     """Route handler that records a new plant species via helper logic."""
     logging.info("HIT /plant-species: %s", payload.scientific_name)

@@ -1,7 +1,7 @@
-from fastapi import requests
+import requests
 
 # Point this to your locally running FastAPI server
-API_URL = "http://localhost:8000/plant-species"
+API_URL = "https://identiflora-api.onrender.com/plant-species"
 
 def load_plants(file_path):
     with open(file_path, "r", encoding="utf-8") as file:
@@ -43,4 +43,7 @@ def load_plants(file_path):
 
 if __name__ == "__main__":
     # Filepath to the labels file in identiflora "flutter-app/assets/model/labels.txt" is the in repo filepath
-    load_plants("C:/temp/flutter-app/assets/model/labels.txt")
+    load_plants("C:/Users/Jackson/Documents/GitHub/flutter-app/assets/model/labels.txt")
+
+
+    # C:/Users/Jackson/Documents/GitHub/flutter-app/assets/model/labels.txt
