@@ -5,80 +5,62 @@ import logging
 from app.models.requests import PlantSubmissionRequest
 
 def record_plant_submission(payload: PlantSubmissionRequest, user_id: int, engine):
+    """
+    Records a plant submission using database procedures and hopefully works now
+    """
     try:
         with engine.begin() as conn:
-            # Insert into identification_submission
             sub_result = conn.execute(
-                text("""
-                    INSERT INTO identification_submission (user_id, latitude, longitude, img_url) 
-                    VALUES (:uid, :lat, :lon, :img)
-                """),
-                {"uid": user_id, "lat": payload.latitude, "lon": payload.longitude, "img": payload.img_url}
-            )
-            submission_id = sub_result.lastrowid
+                text("CALL add_identification_submission(:uid, :lat, :lon, :img)"),
+                {
+                    "uid": user_id, 
+                    "lat": payload.latitude, 
+                    "lon": payload.longitude, 
+                    "img": payload.img_url or ""
+                }
+            ).first()
+            submission_id = sub_result.identification_id
             
-            final_option_id = None
+            first_option_id = None
 
-            # Loops through payload to get each plant option
-            for rank_minus_one, class_idx in enumerate(payload.prediction_ids):
-                # Fix off by one difference
+            for rank_idx, class_idx in enumerate(payload.prediction_ids):
                 db_species_id = class_idx + 1 
                 
                 opt_result = conn.execute(
-                    text("""
-                        INSERT INTO identification_option (identification_id, species_id, option_rank) 
-                        VALUES (:iid, :sid, :rank)
-                    """),
-                    {"iid": submission_id, "sid": db_species_id, "rank": rank_minus_one + 1}
-                )
-
-                # Check if this species matches the user's through string comparison
-                # Probably a better way of doing this
-                species_check = conn.execute(
-                    # Has functionality for if we change the main way to refer to the plants by common name
-                    text("SELECT species_id FROM plant_species WHERE scientific_name = :n OR common_name = :n"),
-                    {"n": payload.user_guess}
+                    text("CALL add_identification_option(:iid, :sid, :rank)"),
+                    {
+                        "iid": submission_id, 
+                        "sid": db_species_id, 
+                        "rank": rank_idx + 1
+                    }
                 ).first()
 
-                if species_check and species_check.species_id == db_species_id:
-                    final_option_id = opt_result.lastrowid
+                # Capture the database ID of the top-ranked prediction
+                if rank_idx == 0:
+                    first_option_id = opt_result.option_id
 
-            # Record final result
-            if final_option_id:
+            if first_option_id:
                 conn.execute(
-                    text("INSERT INTO identification_result (identification_id, user_id, option_id) VALUES (:iid, :uid, :oid)"),
-                    {"iid": submission_id, "uid": user_id, "oid": final_option_id}
+                    text("CALL add_identification_result(:iid, :uid, :oid)"),
+                    {"iid": submission_id, "uid": user_id, "oid": first_option_id}
                 )
 
             return {"success": True, "identification_id": submission_id}
+            
     except Exception as e:
+        logging.error(f"Error recording submission for user {user_id}: {e}")
         return {"success": False, "error": str(e)}
 
 def get_submission_history(user_id: int, engine) -> list:
     """
-    Fetches all of a user's past plant submissions by joining the submission
-    directly to the top AI prediction
+    Fetches all of a user's past plant submissions by calling the get_user_submission_history procedure
     """
     try:
         with engine.connect() as conn:
-            query = text("""
-                SELECT 
-                    s.identification_id,
-                    s.time_submitted,
-                    s.latitude,
-                    s.longitude,
-                    s.img_url AS submission_img,
-                    p.common_name,
-                    p.scientific_name,
-                    p.img_url AS species_img
-                FROM identification_submission s
-                -- Join directly to the AI's #1 choice for every submission
-                JOIN identification_option o ON s.identification_id = o.identification_id AND o.option_rank = 1
-                JOIN plant_species p ON o.species_id = p.species_id
-                WHERE s.user_id = :uid
-                ORDER BY s.time_submitted DESC;
-            """)
-            result = conn.execute(query, {"uid": user_id}).fetchall()
+            result = conn.execute(
+                text("CALL get_user_submission_history(:uid)"), 
+                {"uid": user_id}
+            ).fetchall()
             
             history = []
             for row in result:
