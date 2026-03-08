@@ -1,5 +1,7 @@
 from __future__ import annotations
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from fastapi import HTTPException
 import logging
 
 from app.models.requests import PlantSubmissionRequest
@@ -47,9 +49,16 @@ def record_plant_submission(payload: PlantSubmissionRequest, user_id: int, engin
 
             return {"success": True, "identification_id": submission_id}
             
-    except Exception as e:
-        logging.error(f"Error recording submission for user {user_id}: {e}")
-        return {"success": False, "error": str(e)}
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Referenced user or species not found.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while recording plant submission: {exc}",
+        ) from exc
 
 def get_submission_history(user_id: int, engine) -> list:
     """
@@ -75,6 +84,14 @@ def get_submission_history(user_id: int, engine) -> list:
                     "species_img": row.species_img
                 })
             return history
-    except Exception as e:
-        logging.error(f"Failed to fetch history for user {user_id}: {e}")
-        return []
+        
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Referenced user not found",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while fetching submission history: {exc}",
+        ) from exc
