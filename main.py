@@ -20,7 +20,7 @@ from app.core.db_connection import build_engine
 from app.core.users import delete_user_account, get_friends_leaderboard, get_global_leaderboard, get_count_user, add_user_global_points, get_regional_leaderboard, get_user_badge, password_reset_mail_request, get_user_points, get_username, set_user_badge, get_user_region, update_user_email, update_user_password
 
 from app.db.incorrect_identification import record_incorrect_identification
-from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id
+from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id, update_plant_species_url
 
 from app.db.friends import get_friends, add_friend
 from app.models.requests import FriendAddRequest, UserEmailUpdateRequest, UserPasswordUpdateRequest
@@ -78,6 +78,12 @@ async def add_plant_species(payload: PlantSpeciesRequest):
     """Route handler that records a new plant species via helper logic."""
     logging.info("HIT /plant-species: %s", payload.scientific_name)
     return record_plant_species(payload, engine)
+
+@app.post("/add-plant-species-url")
+@limiter.exempt
+async def add_plant_species_url(payload: PlantSpeciesRequest):
+    """Route handler that records a new plant species via helper logic."""
+    return update_plant_species_url(payload, engine)
 
 @app.get("/plant-species-url/{scientific_name}")
 async def get_plant_species_url_router(scientific_name: str): 
