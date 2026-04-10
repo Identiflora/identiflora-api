@@ -110,3 +110,59 @@ async def accept_friend_request(requester_id: int, addressee_id: int, engine: En
             status_code=500,
             detail=f"Database error while accepting friend request: {exc}",
         ) from exc
+def get_pending_requests(user_id: int, engine: Engine) -> List[Dict[str, Any]]:
+    try:
+        with engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    """
+                    SELECT u.user_id, u.username
+                    FROM friendships f
+                    JOIN user u ON u.user_id = f.requester_id
+                    WHERE f.addressee_id = :user_id
+                      AND f.requester_status = 'pending'
+                      AND f.addressee_status = 'pending'
+                    """
+                ),
+                {"user_id": user_id},
+            ).all()
+
+            return [{"id": r.user_id, "username": r.username} for r in rows]
+
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while fetching pending requests: {exc}",
+        ) from exc
+
+
+# Endpoint to reject a friend request
+def reject_friend_request(requester_id: int, addressee_id: int, engine: Engine) -> Dict[str, Any]:
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(
+                text(
+                    """
+                    DELETE FROM friendships
+                    WHERE requester_id = :requester_id
+                      AND addressee_id = :addressee_id
+                      AND requester_status = 'pending'
+                      AND addressee_status = 'pending'
+                    """
+                ),
+                {
+                    "requester_id": requester_id,
+                    "addressee_id": addressee_id,
+                },
+            )
+
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Pending friend request not found.")
+
+            return {"message": "Friend request rejected."}
+
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while rejecting friend request: {exc}",
+        ) from exc
