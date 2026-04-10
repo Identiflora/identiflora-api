@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from fastapi import HTTPException
-
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -11,7 +10,6 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from app.models.requests import FriendAddRequest
 
 
-# Endpoint to get the list of friends for a user
 def get_friends(user_id: int, engine: Engine) -> List[Dict[str, Any]]:
     try:
         with engine.begin() as conn:
@@ -20,7 +18,6 @@ def get_friends(user_id: int, engine: Engine) -> List[Dict[str, Any]]:
                 {"user_id_in": user_id},
             ).all()
 
-            # Return the list of accepted friends
             return [{"id": r.user_id, "username": r.username} for r in rows]
 
     except SQLAlchemyError as exc:
@@ -30,7 +27,23 @@ def get_friends(user_id: int, engine: Engine) -> List[Dict[str, Any]]:
         ) from exc
 
 
-# Endpoint to send a friend request
+def get_pending_requests(user_id: int, engine: Engine) -> List[Dict[str, Any]]:
+    try:
+        with engine.begin() as conn:
+            rows = conn.execute(
+                text("CALL get_pending_friend_requests(:user_id_in)"),
+                {"user_id_in": user_id},
+            ).all()
+
+            return [{"id": r.user_id, "username": r.username} for r in rows]
+
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while fetching pending requests: {exc}",
+        ) from exc
+
+
 def add_friend(payload: FriendAddRequest, user_id: int, engine: Engine) -> Dict[str, Any]:
     friend_username = payload.friend_username.strip() if payload.friend_username else ""
     if not friend_username:
@@ -38,22 +51,19 @@ def add_friend(payload: FriendAddRequest, user_id: int, engine: Engine) -> Dict[
 
     try:
         with engine.begin() as conn:
-            # Check if the friend exists
             result = conn.execute(
                 text("SELECT user_id FROM user WHERE username = :friend_username"),
                 {"friend_username": friend_username},
-            ).fetchone()
+            ).mappings().fetchone()
 
             if not result:
                 raise HTTPException(status_code=404, detail="User not found.")
 
             addressee_id = result["user_id"]
 
-            # Ensure the user is not trying to add themselves
             if addressee_id == user_id:
                 raise HTTPException(status_code=400, detail="Cannot send friend request to yourself.")
 
-            # Insert a pending friendship with both statuses as 'pending'
             conn.execute(
                 text(
                     """
@@ -86,78 +96,61 @@ def add_friend(payload: FriendAddRequest, user_id: int, engine: Engine) -> Dict[
         ) from exc
 
 
-# Endpoint to accept a friend request
-@app.post("/accept_friend_request")
+@app.get("/friends")
+async def friends(user_id: int, engine: Engine) -> Dict[str, Any]:
+    return {"friends": get_friends(user_id, engine)}
+
+
+@app.get("/friends/pending")
+async def pending_friends(user_id: int, engine: Engine) -> Dict[str, Any]:
+    return {"pending_requests": get_pending_requests(user_id, engine)}
+
+
+@app.post("/friends/add")
+async def add_friend_endpoint(payload: FriendAddRequest, user_id: int, engine: Engine) -> Dict[str, Any]:
+    return add_friend(payload, user_id, engine)
+
+
+@app.post("/friends/accept")
 async def accept_friend_request(requester_id: int, addressee_id: int, engine: Engine) -> Dict[str, Any]:
     try:
         with engine.begin() as conn:
-            result = conn.execute(
+            conn.execute(
                 text(
                     """
                     CALL accept_friend_request(:requester_id_in, :addressee_id_in)
                     """
                 ),
-                {"requester_id_in": requester_id, "addressee_id_in": addressee_id},
+                {
+                    "requester_id_in": requester_id,
+                    "addressee_id_in": addressee_id,
+                },
             )
 
-            if result:
-                return {"message": "Friend request accepted."}
-            else:
-                raise HTTPException(status_code=400, detail="Error accepting friend request.")
+            return {"message": "Friend request accepted."}
 
     except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=500,
             detail=f"Database error while accepting friend request: {exc}",
         ) from exc
-def get_pending_requests(user_id: int, engine: Engine) -> List[Dict[str, Any]]:
+
+
+@app.post("/friends/reject")
+async def reject_friend_request(requester_id: int, addressee_id: int, engine: Engine) -> Dict[str, Any]:
     try:
         with engine.begin() as conn:
-            rows = conn.execute(
+            conn.execute(
                 text(
                     """
-                    SELECT u.user_id, u.username
-                    FROM friendships f
-                    JOIN user u ON u.user_id = f.requester_id
-                    WHERE f.addressee_id = :user_id
-                      AND f.requester_status = 'pending'
-                      AND f.addressee_status = 'pending'
-                    """
-                ),
-                {"user_id": user_id},
-            ).all()
-
-            return [{"id": r.user_id, "username": r.username} for r in rows]
-
-    except SQLAlchemyError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database error while fetching pending requests: {exc}",
-        ) from exc
-
-
-# Endpoint to reject a friend request
-def reject_friend_request(requester_id: int, addressee_id: int, engine: Engine) -> Dict[str, Any]:
-    try:
-        with engine.begin() as conn:
-            result = conn.execute(
-                text(
-                    """
-                    DELETE FROM friendships
-                    WHERE requester_id = :requester_id
-                      AND addressee_id = :addressee_id
-                      AND requester_status = 'pending'
-                      AND addressee_status = 'pending'
+                    CALL reject_friend_request(:requester_id_in, :addressee_id_in)
                     """
                 ),
                 {
-                    "requester_id": requester_id,
-                    "addressee_id": addressee_id,
+                    "requester_id_in": requester_id,
+                    "addressee_id_in": addressee_id,
                 },
             )
-
-            if result.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Pending friend request not found.")
 
             return {"message": "Friend request rejected."}
 
@@ -165,4 +158,29 @@ def reject_friend_request(requester_id: int, addressee_id: int, engine: Engine) 
         raise HTTPException(
             status_code=500,
             detail=f"Database error while rejecting friend request: {exc}",
+        ) from exc
+
+
+@app.delete("/friends")
+async def delete_friend(friend_id: int, user_id: int, engine: Engine) -> Dict[str, Any]:
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    CALL remove_friend(:user_id_in, :friend_id_in)
+                    """
+                ),
+                {
+                    "user_id_in": user_id,
+                    "friend_id_in": friend_id,
+                },
+            )
+
+            return {"message": "Friend deleted."}
+
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while deleting friend: {exc}",
         ) from exc
