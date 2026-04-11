@@ -186,6 +186,47 @@ async def get_user_region_router(token_claims: Annotated[dict, Depends(get_curre
     user_id = token_claims.get('sub')
     return get_user_region(user_id, engine)
 
+@app.get("/friends")
+async def friends(current_user = Depends(get_current_user)):
+    return {"friends": get_friends(current_user["user_id"], engine)}
+
+
+@app.get("/friends/pending")
+async def pending_friends(current_user = Depends(get_current_user)):
+    return {"pending_requests": get_pending_requests(current_user["user_id"], engine)}
+
+
+@app.post("/friends/add")
+async def add_friend_endpoint(
+    payload: FriendAddRequest,
+    current_user = Depends(get_current_user),
+):
+    return add_friend(payload, current_user["user_id"], engine)
+
+
+@app.post("/friends/accept")
+async def accept_friend_request_endpoint(
+    requester_id: int,
+    current_user = Depends(get_current_user),
+):
+    return accept_friend_request(requester_id, current_user["user_id"], engine)
+
+
+@app.post("/friends/reject")
+async def reject_friend_request_endpoint(
+    requester_id: int,
+    current_user = Depends(get_current_user),
+):
+    return reject_friend_request(requester_id, current_user["user_id"], engine)
+
+
+@app.delete("/friends")
+async def delete_friend_endpoint(
+    friend_id: int,
+    current_user = Depends(get_current_user),
+):
+    return delete_friend(current_user["user_id"], friend_id, engine)
+
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
