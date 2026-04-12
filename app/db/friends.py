@@ -62,7 +62,10 @@ def add_friend(payload: FriendAddRequest, user_id: int, engine: Engine) -> Dict[
             addressee_id = result["user_id"]
 
             if addressee_id == user_id:
-                raise HTTPException(status_code=400, detail="Cannot send friend request to yourself.")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot send friend request to yourself.",
+                )
 
             conn.execute(
                 text(
@@ -94,5 +97,122 @@ def add_friend(payload: FriendAddRequest, user_id: int, engine: Engine) -> Dict[
             status_code=500,
             detail=f"Database error while adding friend: {exc}",
         ) from exc
+
+
+def accept_friend_request(requester_id: int, user_id: int, engine: Engine) -> Dict[str, Any]:
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(
+                text(
+                    """
+                    UPDATE friendships
+                    SET status = 'accepted'
+                    WHERE requester_id = :requester_id
+                      AND addressee_id = :user_id
+                      AND status = 'pending'
+                    """
+                ),
+                {
+                    "requester_id": requester_id,
+                    "user_id": user_id,
+                },
+            )
+
+            if result.rowcount == 0:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Pending friend request not found.",
+                )
+
+            return {
+                "message": "Friend request accepted.",
+                "requester_id": requester_id,
+                "user_id": user_id,
+            }
+
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while accepting friend request: {exc}",
+        ) from exc
+
+
+def reject_friend_request(requester_id: int, user_id: int, engine: Engine) -> Dict[str, Any]:
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(
+                text(
+                    """
+                    DELETE FROM friendships
+                    WHERE requester_id = :requester_id
+                      AND addressee_id = :user_id
+                      AND status = 'pending'
+                    """
+                ),
+                {
+                    "requester_id": requester_id,
+                    "user_id": user_id,
+                },
+            )
+
+            if result.rowcount == 0:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Pending friend request not found.",
+                )
+
+            return {
+                "message": "Friend request rejected.",
+                "requester_id": requester_id,
+                "user_id": user_id,
+            }
+
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while rejecting friend request: {exc}",
+        ) from exc
+
+
+def delete_friend(user_id: int, friend_id: int, engine: Engine) -> Dict[str, Any]:
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(
+                text(
+                    """
+                    DELETE FROM friendships
+                    WHERE (
+                        requester_id = :user_id
+                        AND addressee_id = :friend_id
+                    ) OR (
+                        requester_id = :friend_id
+                        AND addressee_id = :user_id
+                    )
+                    """
+                ),
+                {
+                    "user_id": user_id,
+                    "friend_id": friend_id,
+                },
+            )
+
+            if result.rowcount == 0:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Friendship not found.",
+                )
+
+            return {
+                "message": "Friend deleted successfully.",
+                "user_id": user_id,
+                "friend_id": friend_id,
+            }
+
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while deleting friend: {exc}",
+        ) from exc
+
 
 
