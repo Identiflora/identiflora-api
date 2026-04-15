@@ -1,6 +1,7 @@
 import os
+from pathlib import Path
 from fastapi import BackgroundTasks
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from dotenv import load_dotenv
 
 OTP_EXPIRATION_TIME_MINUTES = 15
@@ -18,7 +19,8 @@ def getMailConfig():
         MAIL_STARTTLS=os.getenv('MAIL_TLS'),
         MAIL_SSL_TLS=os.getenv('MAIL_SSL'),
         USE_CREDENTIALS=os.getenv('USE_CREDENTIALS'),
-        VALIDATE_CERTS=os.getenv('VALIDATE_CERTS')
+        VALIDATE_CERTS=os.getenv('VALIDATE_CERTS'),
+        TEMPLATE_FOLDER= Path(__file__).parent / 'mail_templates'
     )
 
     return config
@@ -37,18 +39,16 @@ def testEmail(email: str):
 
 def otpMailMessage(email: str, otp: str, backgroundTasks: BackgroundTasks):
     return mailMessage(
-        email, 
-        "Password Reset for Identiflora", "Hi there!\n\nHere is your one time password regarding your recent password reset:\n\n" 
-            + otp + "\n\nThis password will expire in " + str(OTP_EXPIRATION_TIME_MINUTES) + " minutes.\n\nDo not reply to this email, but if this was not you, please send an email to identiflora.app@gmail.com.", 
-        backgroundTasks)
-
-def mailMessage(email: str, subject: str, body: str, backgroundTasks: BackgroundTasks):
-    message = MessageSchema(
-        subject=subject,
-        recipients=[email],
-        body=body,
-        subtype="plain"
+        message=MessageSchema(
+            subject="Password Reset for Identiflora",
+            recipients=[email],
+            template_body={"otp": list(otp), "exp_time": str(OTP_EXPIRATION_TIME_MINUTES)},
+            subtype=MessageType.html
+        ),
+        backgroundTasks=backgroundTasks
     )
 
-    backgroundTasks.add_task(FastMail(getMailConfig()).send_message, message)
+def mailMessage(message: MessageSchema, backgroundTasks: BackgroundTasks):
+    fm = FastMail(getMailConfig())
+    backgroundTasks.add_task(fm.send_message, message, "password_reset.html")
     return {"message": "Email sending initiated in the background", "success": True}

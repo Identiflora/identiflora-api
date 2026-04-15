@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 
 class IncorrectIdentificationRequest(BaseModel):
@@ -85,6 +85,7 @@ class GoogleUserRegisterRequest(BaseModel):
     """
 
     username: str = Field(..., min_length=1, description="Username from user input")
+    region: str = Field(..., min_length=1, description="Region from user input")
 
 class FriendAddRequest(BaseModel):
     friend_user_id: int
@@ -104,6 +105,24 @@ class UserOTPVerifyRequest(BaseModel):
 
     otp: str = Field(..., min_length=1, description="Password from user input with expected OTP functionality")
     user_email: str = Field(..., min_length=1, description="Email from user input")
+class UserEmailUpdateRequest(BaseModel):
+    """
+    Request body for updating a user's email.
+    """
+    new_email: str = Field(..., min_length=1, description="New email from user input")
+
+class UserPasswordUpdateRequest(BaseModel):
+    """
+    Request body for updating a user's password.
+    """
+    new_password_hash: str = Field(..., min_length=1, description="New password hash from user input")
 
 class FriendAddRequest(BaseModel):
     friend_username: str
+
+class PlantSubmissionRequest(BaseModel):
+    prediction_ids: List[int] =Field(..., description="Plant ID's of top 5 options")
+    user_guess: str = Field(..., description="The species the user officially accepted")
+    latitude: float = Field(..., description="Latitude of the submission")
+    longitude: float = Field(..., description="Longitude of the submission")
+    img_url: Optional[str] = Field("", description="URL of the uploaded image if applicable")

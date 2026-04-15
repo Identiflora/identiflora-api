@@ -73,6 +73,69 @@ def record_plant_species(payload: PlantSpeciesRequest, engine: Engine) -> Dict[s
             status_code=500,
             detail=f"Database error while adding a new plant species: {exc}",
         ) from exc
+    
+def update_plant_species_url(payload: PlantSpeciesRequest, engine: Engine) -> Dict[str, Any]:
+    """
+    Add a new plant species image URL to database
+
+    Parameters
+    ----------
+    payload : PlantSpeciesRequest
+        Request data containing common_name, scientific_name, genus, and img_url
+
+    Returns
+    -------
+    dict
+        Confirmation payload mirroring the created row.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, referenced rows are missing, or database errors occur.
+    """
+
+    try:
+        with engine.begin() as conn:
+
+            # Read-only duplicate guard to avoid multiple plant species of same type.
+            existing = conn.execute(
+                text("CALL check_plant_species_exists(:scientific_name_in)"),
+                {"scientific_name_in": payload.scientific_name},
+            ).first()
+
+            if existing is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="This plant species doesn't already exist in the database.",
+                )
+
+            # Write: insert the new plant species record.
+            conn.execute(
+                text("CALL add_plant_species_img_url(:scientific_name_in, :img_url_in)"),
+                {
+                    "scientific_name_in": payload.scientific_name,
+                    "img_url_in": payload.img_url,
+                },
+            )
+            conn.commit()
+
+            return {
+                    "common_name_in": payload.common_name,
+                    "scientific_name_in": payload.scientific_name,
+                    "genus_in": payload.genus,
+                    "img_url_in": payload.img_url,
+                }
+
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="This plant species doesn't already exist.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while adding a new plant species: {exc}",
+        ) from exc
 
 def get_plant_species_url(scientific_name: str, engine: Engine) -> str:
     """

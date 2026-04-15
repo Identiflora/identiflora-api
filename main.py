@@ -37,39 +37,16 @@ from app.auth.login_signup import (
 from app.auth.token import get_current_user
 
 from app.core.db_connection import build_engine
-from app.core.users import (
-    delete_user_account,
-    get_friends_leaderboard,
-    get_global_leaderboard,
-    get_count_user,
-    add_user_global_points,
-    get_regional_leaderboard,
-    get_user_badge,
-    password_reset_mail_request,
-    get_user_points,
-    get_username,
-    set_user_badge,
-    get_user_region,
-    update_user_email,
-    update_user_password,
-)
+from app.core.users import delete_user_account, get_friends_leaderboard, get_global_leaderboard, get_count_user, add_user_global_points, get_regional_leaderboard, get_user_badge, password_reset_mail_request, get_user_points, get_username, set_user_badge, get_user_region, update_user_email, update_user_password
 
 from app.db.incorrect_identification import record_incorrect_identification
-from app.db.plant_species import (
-    record_plant_species,
-    get_plant_species_url,
-    get_species_id,
-    update_plant_species_url,
-)
+from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id, update_plant_species_url
 
-from app.db.friends import (
-    get_friends,
-    add_friend,
-    get_pending_requests,
-    accept_friend_request,
-    reject_friend_request,
-    delete_friend,
-)
+from app.db.friends import get_friends, add_friend
+from app.models.requests import FriendAddRequest, UserEmailUpdateRequest, UserPasswordUpdateRequest
+
+from app.models.requests import PlantSubmissionRequest
+from app.db.submissions import record_plant_submission, get_submission_history
 
 from app.db.submissions import record_plant_submission, get_submission_history
 
@@ -133,13 +110,11 @@ async def add_plant_species(payload: PlantSpeciesRequest):
     logging.info("HIT /plant-species: %s", payload.scientific_name)
     return record_plant_species(payload, engine)
 
-
 @app.post("/add-plant-species-url")
 @limiter.exempt
 async def add_plant_species_url(payload: PlantSpeciesRequest):
-    """Route handler that records a new plant species url via helper logic."""
+    """Route handler that records a new plant species via helper logic."""
     return update_plant_species_url(payload, engine)
-
 
 @app.get("/plant-species-url/{scientific_name}")
 async def get_plant_species_url_router(scientific_name: str):
@@ -212,10 +187,7 @@ async def google_auth(auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())
 
 
 @app.post("/google/register")
-async def google_register(
-    payload: GoogleUserRegisterRequest,
-    auth: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
-):
+async def google_register(payload: GoogleUserRegisterRequest, auth: HTTPAuthorizationCredentials = Depends(HTTPBearer())):
     """Route handler that attempts to record user Google data via helper logic."""
     token = auth.credentials
     return add_google_account(token, payload, engine)
@@ -304,37 +276,25 @@ async def get_username_router(
     user_id = token_claims.get("sub")
     return get_username(user_id, engine)
 
-
 @app.post("/user/update-email")
-async def update_email_router(
-    payload: UserEmailUpdateRequest,
-    token_claims: Annotated[dict, Depends(get_current_user)],
-):
+async def update_email_router(payload: UserEmailUpdateRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler for updating an authenticated user's email."""
-    user_id = int(token_claims.get("sub"))
+    user_id = int(token_claims.get('sub'))
     logging.info(f"User {user_id} requested email update")
     return update_user_email(user_id, payload, engine)
 
-
 @app.post("/user/update-password")
-async def update_password_router(
-    payload: UserPasswordUpdateRequest,
-    token_claims: Annotated[dict, Depends(get_current_user)],
-):
+async def update_password_router(payload: UserPasswordUpdateRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler for updating an authenticated user's password."""
-    user_id = int(token_claims.get("sub"))
+    user_id = int(token_claims.get('sub'))
     logging.info(f"User {user_id} requested password update")
     return update_user_password(user_id, payload, engine)
 
-
 @app.delete("/user/account")
-async def delete_account_router(
-    token_claims: Annotated[dict, Depends(get_current_user)]
-):
+async def delete_account_router(token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route to permanently delete the authenticated user's account."""
-    user_id = int(token_claims.get("sub"))
+    user_id = int(token_claims.get('sub'))
     return delete_user_account(user_id, engine)
-
 
 @app.post("/set-user-badge")
 async def set_user_badge_router(
@@ -364,26 +324,18 @@ async def get_user_region_router(
     user_id = token_claims.get("sub")
     return get_user_region(user_id, engine)
 
-
 @app.post("/user/submissions")
-async def add_plant_submission(
-    payload: PlantSubmissionRequest,
-    token_claims: Annotated[dict, Depends(get_current_user)],
-):
-    user_id = int(token_claims.get("sub"))
-    logging.info(f"User {user_id} saving plant submission: {payload.user_guess}")
+async def add_plant_submission(payload: PlantSubmissionRequest, token_claims: Annotated[dict, Depends(get_current_user)]):
+    user_id = int(token_claims.get('sub'))
+    logging.info(f"User {user_id} saving plant submission: {payload.user_guess}") 
     return record_plant_submission(payload, user_id, engine)
 
-
 @app.get("/user/history")
-async def get_user_history(
-    token_claims: Annotated[dict, Depends(get_current_user)]
-):
+async def get_user_history(token_claims: Annotated[dict, Depends(get_current_user)]):
     """Route handler that returns a user's plant identification history."""
-    user_id = int(token_claims.get("sub"))
+    user_id = int(token_claims.get('sub'))
     logging.info(f"User {user_id} requested submission history")
     return get_submission_history(user_id, engine)
-
 
 if __name__ == "__main__":
     uvicorn.run(
