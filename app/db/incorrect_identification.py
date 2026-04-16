@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any, Dict
 
 import boto3
@@ -94,6 +95,8 @@ def create_presigned_url(object_key: str, expiration: int = 3600) -> str:
     s3 = boto3.client(
         "s3",
         region_name="us-west-1",
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
         config=Config(signature_version="s3v4"),
     )
     return s3.generate_presigned_url(
