@@ -1,5 +1,5 @@
 ## Database API (FastAPI)
-The Python API in `Database/api/database_api.py` exposes a minimal endpoint to record incorrect identifications in MySQL. As stated, this project uses FastAPI, which is licensed under the MIT licensed.
+The Python API in `Database/api/database_api.py` exposes a minimal endpoint to record incorrect identifications in MySQL. As stated, this project uses FastAPI, which is licensed under the MIT license.
 
 ### Requirements
 - Python 3.10+
