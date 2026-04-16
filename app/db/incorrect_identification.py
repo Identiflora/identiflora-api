@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+import boto3
+from botocore.config import Config
+from botocore.exceptions import ClientError
+
 from fastapi import HTTPException
 
 from sqlalchemy import text
@@ -23,13 +27,21 @@ def record_incorrect_identification(payload: IncorrectIdentificationRequest, eng
     Returns
     -------
     dict
-        Confirmation payload mirroring the created row.
+        Confirmation payload mirroring the created row, including a presigned S3 upload URL.
 
     Raises
     ------
     HTTPException
         If validation fails, referenced rows are missing, or database errors occur.
     """
+    try:
+        presigned_url = create_presigned_url(str(payload.identification_id))
+    except ClientError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate upload URL: {exc}",
+        ) from exc
+
     if payload.correct_species_id == payload.incorrect_species_id:
         raise HTTPException(status_code=400, detail="Correct and incorrect species IDs must differ.")
 
@@ -62,6 +74,7 @@ def record_incorrect_identification(payload: IncorrectIdentificationRequest, eng
                 "correct_species_id": payload.correct_species_id,
                 "incorrect_species_id": payload.incorrect_species_id,
                 "message": "Incorrect identification recorded.",
+                "url": presigned_url,
             }
 
     except IntegrityError as exc:
@@ -74,3 +87,18 @@ def record_incorrect_identification(payload: IncorrectIdentificationRequest, eng
             status_code=500,
             detail=f"Database error while creating incorrect identification: {exc}",
         ) from exc
+
+
+def create_presigned_url(object_key: str, expiration: int = 3600) -> str:
+    """Generate a presigned S3 PUT URL for the identiflora-images bucket."""
+    s3 = boto3.client(
+        "s3",
+        region_name="us-west-1",
+        config=Config(signature_version="s3v4"),
+    )
+    return s3.generate_presigned_url(
+        "put_object",
+        Params={"Bucket": "identiflora-images", "Key": object_key},
+        ExpiresIn=expiration,
+        HttpMethod="PUT",
+    )
