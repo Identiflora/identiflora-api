@@ -8,8 +8,8 @@ class IncorrectIdentificationRequest(BaseModel):
     """
 
     identification_id: int = Field(..., gt=0, description="FK to identification_submission")
-    correct_species_id: int = Field(..., gt=0, description="Species that should have been returned")
-    incorrect_species_id: int = Field(..., gt=0, description="Species the model predicted")
+    correct_species: str = Field(..., min_length=1, description="Species that should have been returned")
+    incorrect_species: str = Field(..., min_length=1, description="Species the model predicted")
 
 class PlantSpeciesRequest(BaseModel):
     """
