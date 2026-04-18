@@ -126,3 +126,10 @@ class PlantSubmissionRequest(BaseModel):
     latitude: float = Field(..., description="Latitude of the submission")
     longitude: float = Field(..., description="Longitude of the submission")
     img_url: Optional[str] = Field("", description="URL of the uploaded image if applicable")
+
+class UsernameSetRequest(BaseModel):
+    """
+    Request body for username set request.
+    """
+
+    new_username: str = Field(..., min_length=1, description="New username requested")

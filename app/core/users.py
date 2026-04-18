@@ -408,7 +408,47 @@ def get_username(user_id: int, engine: Engine) -> str:
             status_code=500,
             detail=f"Database error while fetching username: {exc}",
         ) from exc
-    
+
+def change_username(user_id: int, new_username: str, engine: Engine):
+    """
+    Change users username in the database.
+
+    Parameters
+    ----------
+    user_id : int
+        Database id for user
+    new_username : str
+        Username to change to
+    engine : sqlalchemy.engine.Engine
+        Database engine used to perform the query.
+
+    Returns
+    -------
+    bool
+        Success or failure
+
+    Raises
+    ------
+    HTTPException
+        404 if not found, 500 for database errors.
+    """
+    try:
+        with engine.connect() as conn:
+            payload = {"user_id_in": user_id, "username_in": new_username}
+            result = conn.execute(text('CALL set_username(:user_id_in, :username_in)'), payload)
+            conn.commit()
+
+            if result is None:
+                raise HTTPException(status_code=404, detail="User not found when setting username.")
+            
+            return True
+        
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while setting username: {exc}",
+        ) from exc
+
 def set_user_badge(user_id: int, badge_path: str, engine: Engine) -> bool:
     """
     Set the Flutter asset file path to a user's selected badge that is identified by the user_id in their auth token.
