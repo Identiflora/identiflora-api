@@ -173,6 +173,47 @@ def reject_friend_request(requester_id: int, user_id: int, engine: Engine) -> Di
             detail=f"Database error while rejecting friend request: {exc}",
         ) from exc
 
+def search_usernames(prefix: str, user_id: int, engine: Engine) -> List[Dict[str, Any]]:
+    prefix = (prefix or "").strip()
+
+    if not prefix:
+        return []
+
+    try:
+        with engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    """
+                    SELECT user_id, username
+                    FROM user
+                    WHERE username LIKE :prefix
+                      AND user_id <> :user_id
+                      AND user_id NOT IN (
+                          SELECT CASE
+                              WHEN requester_id = :user_id THEN addressee_id
+                              ELSE requester_id
+                          END
+                          FROM friendships
+                          WHERE requester_id = :user_id
+                             OR addressee_id = :user_id
+                      )
+                    ORDER BY username ASC
+                    LIMIT 20
+                    """
+                ),
+                {
+                    "prefix": f"{prefix}%",
+                    "user_id": user_id,
+                },
+            ).mappings().all()
+
+            return [{"id": r["user_id"], "username": r["username"]} for r in rows]
+
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while searching usernames: {exc}",
+        ) from exc
 
 def delete_friend(user_id: int, friend_id: int, engine: Engine) -> Dict[str, Any]:
     try:
