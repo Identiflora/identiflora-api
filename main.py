@@ -267,6 +267,10 @@ async def delete_friend_endpoint(
     user_id = int(token_claims.get("sub"))
     return delete_friend(user_id, friend_id, engine)
 
+@app.get("/friends-test")
+async def test():
+    return {"ok": True}
+
 
 @app.post("/username")
 async def get_username_router(
