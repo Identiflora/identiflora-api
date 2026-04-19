@@ -66,6 +66,7 @@ from app.db.friends import (
     accept_friend_request,
     reject_friend_request,
     delete_friend,
+    search_usernames,
 )
 from app.models.requests import FriendAddRequest, UserEmailUpdateRequest, UserPasswordUpdateRequest
 
