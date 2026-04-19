@@ -59,7 +59,14 @@ from app.core.users import (
 from app.db.incorrect_identification import record_incorrect_identification
 from app.db.plant_species import record_plant_species, get_plant_species_url, get_species_id, update_plant_species_url
 
-from app.db.friends import get_friends, add_friend
+from app.db.friends import (
+    get_friends,
+    get_pending_requests,
+    add_friend,
+    accept_friend_request,
+    reject_friend_request,
+    delete_friend,
+)
 from app.models.requests import FriendAddRequest, UserEmailUpdateRequest, UserPasswordUpdateRequest
 
 from app.models.requests import PlantSubmissionRequest
