@@ -256,6 +256,14 @@ async def pending_friends(
     user_id = int(token_claims.get("sub"))
     return {"pending_requests": get_pending_requests(user_id, engine)}
 
+@app.get("/friends/search")
+async def search_friends_router(
+    query: str,
+    token_claims: Annotated[dict, Depends(get_current_user)],
+):
+    user_id = int(token_claims.get("sub"))
+    return {"results": search_usernames(query, user_id, engine)}
+
 
 @app.post("/friends/add")
 async def add_friend_router(
