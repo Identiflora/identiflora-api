@@ -275,6 +275,14 @@ async def reject_friend_request_endpoint(
     user_id = int(token_claims.get("sub"))
     return reject_friend_request(requester_id, user_id, engine)
 
+@app.delete("/friends/delete")
+async def delete_friend_endpoint(
+    friend_id: int,
+    token_claims: Annotated[dict, Depends(get_current_user)],
+):
+    user_id = int(token_claims.get("sub"))
+    return delete_friend(user_id, friend_id, engine)
+
 
 @app.delete("/friends")
 async def delete_friend_endpoint(
