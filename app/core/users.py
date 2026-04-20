@@ -454,6 +454,11 @@ def change_username(user_id: int, new_username: str, engine: Engine):
             
             return True
         
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Email or username already registered.",
+        ) from exc
     except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=500,
