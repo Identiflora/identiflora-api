@@ -379,10 +379,7 @@ async def get_user_history(token_claims: Annotated[dict, Depends(get_current_use
     return get_submission_history(user_id, engine)
 
 @app.post("/change-username")
-async def change_username_router(
-    payload: UsernameSetRequest,
-    token_claims: Annotated[dict, Depends(get_current_user)],
-):
+async def change_username_router(payload: UsernameSetRequest, token_claims: Annotated[dict, Depends(get_current_user)],):
     """Route handler that sets a user's username."""
     user_id = token_claims.get("sub")
     new_username = payload.new_username
