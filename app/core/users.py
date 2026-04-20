@@ -441,13 +441,19 @@ def change_username(user_id: int, new_username: str, engine: Engine):
             if result is None:
                 raise HTTPException(status_code=404, detail="User not found when setting username.")
             
+            username_existing = conn.execute(
+                        text("CALL check_username_exists(:username)"),
+                        {"username": payload.username},
+                    ).first()
+
+            if username_existing is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This username has already taken.",
+                )
+            
             return True
         
-    except IntegrityError as exc:
-        raise HTTPException(
-            status_code=409,
-            detail="Username taken.",
-        ) from exc
     except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=500,
