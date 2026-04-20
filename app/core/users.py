@@ -443,7 +443,7 @@ def change_username(user_id: int, new_username: str, engine: Engine):
             
             username_existing = conn.execute(
                         text("CALL check_username_exists(:username)"),
-                        {"username": payload.username},
+                        {"username": new_username},
                     ).first()
 
             if username_existing is not None:
