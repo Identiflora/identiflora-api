@@ -383,6 +383,7 @@ async def change_username_router(payload: UsernameSetRequest, token_claims: Anno
     """Route handler that sets a user's username."""
     user_id = token_claims.get("sub")
     new_username = payload.new_username
+    logging.info(f"User {user_id} change username request, new username: {payload.new_username}")
     return change_username(user_id, new_username, engine)
 
 if __name__ == "__main__":
