@@ -434,23 +434,23 @@ def change_username(user_id: int, new_username: str, engine: Engine):
     """
     try:
         with engine.connect() as conn:
+            username_existing = conn.execute(
+                text("CALL check_username_exists(:username)"),
+                {"username": new_username},
+            ).first()
+
+            if username_existing is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This username has already taken.",
+            )
+            
             payload = {"user_id_in": user_id, "username_in": new_username}
             result = conn.execute(text('CALL set_username(:user_id_in, :username_in)'), payload)
             conn.commit()
 
             if result is None:
                 raise HTTPException(status_code=404, detail="User not found when setting username.")
-            
-            username_existing = conn.execute(
-                        text("CALL check_username_exists(:username)"),
-                        {"username": new_username},
-                    ).first()
-
-            if username_existing is not None:
-                raise HTTPException(
-                    status_code=409,
-                    detail="This username has already taken.",
-                )
             
             return True
         
