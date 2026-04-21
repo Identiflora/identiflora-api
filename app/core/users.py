@@ -430,7 +430,7 @@ def change_username(user_id: int, new_username: str, engine: Engine):
     Raises
     ------
     HTTPException
-        404 if not found, 500 for database errors.
+        404 if not found, 409 if username is taken, 500 for database errors.
     """
     try:
         with engine.connect() as conn:
