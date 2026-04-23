@@ -12,3 +12,4 @@ argon2-cffi
 google-auth
 fastapi-mail
 slowapi
+boto3

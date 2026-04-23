@@ -8,8 +8,8 @@ class IncorrectIdentificationRequest(BaseModel):
     """
 
     identification_id: int = Field(..., gt=0, description="FK to identification_submission")
-    correct_species_id: int = Field(..., gt=0, description="Species that should have been returned")
-    incorrect_species_id: int = Field(..., gt=0, description="Species the model predicted")
+    correct_species: str = Field(..., min_length=1, description="Species that should have been returned")
+    incorrect_species: str = Field(..., min_length=1, description="Species the model predicted")
 
 class PlantSpeciesRequest(BaseModel):
     """
@@ -126,3 +126,10 @@ class PlantSubmissionRequest(BaseModel):
     latitude: float = Field(..., description="Latitude of the submission")
     longitude: float = Field(..., description="Longitude of the submission")
     img_url: Optional[str] = Field("", description="URL of the uploaded image if applicable")
+
+class UsernameSetRequest(BaseModel):
+    """
+    Request body for username set request.
+    """
+
+    new_username: str = Field(..., min_length=1, description="New username requested")
