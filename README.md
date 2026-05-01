@@ -18,6 +18,16 @@ Required environment variables (create a .env file for local development):
 - DB_USER=your_db_user
 - SECRET_KEY=your_secret_key
 - GOOGLE_SERVER_ID=google_server_id_from_app
+- MAIL_USERNAME=email_address
+- MAIL_PASSWORD=email_password
+- MAIL_FROM=email_address
+- MAIL_PORT=mail_server_port
+- MAIL_SERVER=mail_server
+- MAIL_FROM_NAME=name_to_send_mail_as
+- MAIL_TLS=True
+- MAIL_SSL=False
+- USE_CREDENTIALS=True
+- VALIDATE_CERTS=True
 
 ### Run locally
 1. Ensure HOST and PORT variables are set appropriately
@@ -35,49 +45,5 @@ The API should now be running and you should see the following in the terminal:
 
 ![](readme_images/api_running.png)
 
-### Endpoint: Report incorrect identification
-- **Method/Path**: `POST /incorrect-identifications`
-- **Purpose**: Record that a specific identification submission was wrong, linking the correct and incorrect species.
-- **Request body** (`application/json`):
-  ```
-  {
-    "identification_id": 1,
-    "correct_species_id": 2,
-    "incorrect_species_id": 3
-  }
-  ```
-  - `identification_id`: Must already exist in `identification_submission`.
-  - `correct_species_id` / `incorrect_species_id`: Must exist in `plant_species` and cannot be equal.
-  - `incorrect_species_id` must also exist as an option in `identification_option` for that `identification_id` (composite FK).
-- **Behavior**:
-  - Validates referenced submission and species; ensures the incorrect species is one of the submission's options.
-  - Inserts into `incorrect_identification` with `time_submitted = NOW()`; image URLs are available via joins if needed.
-- **Responses** (examples):
-  - `200 OK`:
-    ```
-    {
-      "identification_id": 1,
-      "correct_species_id": 2,
-      "incorrect_species_id": 3,
-      "message": "Incorrect identification recorded."
-    }
-    ```
-  - `404 Not Found`: Missing submission or species rows.
-  - `400 Bad Request`: Correct/incorrect species are the same, or required image URLs are missing.
-  - `409 Conflict`: An incorrect identification already exists for this submission.
-  - `500 Internal Server Error`: Database/connectivity issues.
-
-### Endpoint: Get plant species img url
-- **Method/Path**: `GET /plant-species-url`
-- **Purpose**: Retrieve url associated with a certain plant species scientific name
-- **Parameters**:
-  - scientific_name: scientific name associated with the desired plant img_url
-  - host: host associated with image server (same as api)
-  - port: port associated with image server (same as api)
-  - img_path: path to images. Currently '/plant-images'
-  - engine: Engine
-- **Behavior**:
-  - Returns a working img_url that can be used to download or view the image
-
-## Credits
+### Credits
 This project uses [FastAPI](https://github.com/fastapi/fastapi), which is licensed under the MIT License.
