@@ -7,6 +7,7 @@ The Python API in `Database/api/database_api.py` exposes a minimal endpoint to r
   ```bash 
   pip install -r requirements.txt
   ```
+- Running MySQL instance with the schema from `Database/schema/initialize_database.sql`
 
 ### Configuration
 Required environment variables (create a .env file for local development):
